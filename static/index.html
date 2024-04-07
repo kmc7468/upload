@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Minchan's Upload</title>
+    </head>
+    <body>
+        <h1>Minchan's Upload</h1>
+        <p>You can upload a file up to <strong>1 GiB</strong> in size. The uploaded file is valid for <strong>1 hour.</strong></p>
+        <input type="file" id="fileInput" />
+        <p>Upload will start <strong>immediately</strong> whenever you select a file.</p>
+        <p>You may use <code>curl</code> command to upload like this: <code>curl --upload-file your_file https://upload.minchan.me</code></p>
+        <p id="result"></p>
+
+        <script>
+            var fileInput = document.getElementById("fileInput");
+            var result = document.getElementById("result");
+
+            fileInput.addEventListener("change", function() {
+                var file = this.files[0];
+                if (!file) return;
+
+                if (file.size > 1073741824) {
+                    alert("The file is too large.");
+                    return;
+                }
+
+                uploadFile(file);
+            });
+            result.style.visibility = "hidden";
+
+            function uploadFile(file) {
+                var filename = encodeURI(file.name);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open("PUT", `https://upload.minchan.me/${filename}`, true);
+                xhr.setRequestHeader("Content-Type", "application/octet-stream");
+
+                xhr.onload = function() {
+                    fileInput.disabled = false;
+
+                    if (xhr.status === 200) {
+                        result.textContent = "Download URL: " + xhr.responseText;
+                        result.style.visibility = "visible";
+
+                        alert("The file has been uploaded successfully.");
+                    } else {
+                        result.style.visibility = "hidden";
+
+                        alert("An error occurred while uploading the file.");
+                    }
+                };
+                xhr.onerror = function() {
+                    fileInput.disabled = false;
+                    result.style.visibility = "hidden";
+
+                    alert("An error occurred while uploading the file.");
+                };
+
+                fileInput.disabled = true;
+                result.textContent = `Uploading ${file.name}...`;
+
+                xhr.send(file);
+            }
+        </script>
+    </body>
+</html>

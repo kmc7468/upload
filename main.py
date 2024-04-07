@@ -57,6 +57,13 @@ def generate_unique_filename():
         if not path.exists(path.join(DIRECTORY, filename)):
             return filename
 
+@app.get("/")
+def index():
+    try:
+        return FileResponse("static/index.html", media_type="text/html")
+    except:
+        return Response(status_code=500)
+
 @app.put("/{filename}")
 async def upload_file(filename: str, request: Request):
     try:
