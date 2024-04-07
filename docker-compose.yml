@@ -1,0 +1,13 @@
+version: "3.6"
+
+services:
+    server:
+        container_name: upload-server
+        build: .
+        restart: always
+        tmpfs:
+            - /usr/src/app/uploads:size=2G
+        environment:
+            - DIRECTORY=/usr/src/app/uploads
+        ports:
+            - "${PORT:?80}:80"
