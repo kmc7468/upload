@@ -59,6 +59,7 @@
 
                 fileInput.disabled = true;
                 result.textContent = `Uploading ${file.name}...`;
+                result.style.visibility = "visible";
 
                 xhr.send(file);
             }
