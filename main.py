@@ -72,6 +72,8 @@ async def upload_file(filename: str, request: Request):
             return Response(status_code=400)
 
         file = await request.body()
+        if len(file) > MAX_FILE_SIZE:
+            return Response(status_code=413)
 
         target_filename = generate_unique_filename()
         target_path = path.join(DIRECTORY, target_filename)
