@@ -1,3 +1,4 @@
 fastapi~=0.110.1
 fastapi-utilities~=0.2.0
+python-magic~=0.4.27
 uvicorn~=0.29.0

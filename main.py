@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Path, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi_utilities import repeat_at
+from magic import Magic
 from os import environ, listdir, path, remove
 import random
 import string
 from time import time
+from urllib.parse import quote
 import uvicorn
 
 def get_integer_env(name: str, default: int, min_value: int = 1):
@@ -41,6 +43,7 @@ print(f"MAX_FILE_SIZE={MAX_FILE_SIZE}")
 print(f"FILE_EXPIRES={FILE_EXPIRES}")
 
 app = FastAPI()
+mime = Magic(mime=True)
 
 def generate_random_filename(length: int):
     chars = string.ascii_letters + string.digits
@@ -68,31 +71,31 @@ async def upload_file(filename: str, request: Request):
         with open(target_path, "wb") as file:
             file.write(await request.body())
 
-        return Response(content=f"https://{host}/{target_filename}/{filename}\n")
+        return PlainTextResponse(f"https://{host}/{target_filename}/{quote(filename)}\n")
     except:
         return Response(status_code=500)
 
-def download_file_body(id: str):
+def download_file_body(id: str, filename: str | None):
     try:
         target_path = path.join(DIRECTORY, id)
         if not path.exists(target_path):
             return Response(status_code=404)
 
-        return FileResponse(target_path)
+        return FileResponse(target_path, media_type=mime.from_file(target_path), filename=filename)
     except:
         return Response(status_code=500)
 
 @app.get("/{id}")
-async def download_file(id: str = Path(..., pattern=ID_REGEX)):
-    return download_file_body(id)
+def download_file(id: str = Path(..., pattern=ID_REGEX)):
+    return download_file_body(id, None)
 
 @app.get("/{id}/{filename}")
-async def download_file_as(id: str = Path(..., pattern=ID_REGEX), filename: str = Path(...)):
-    return download_file_body(id)
+def download_file_as(id: str = Path(..., pattern=ID_REGEX), filename: str = Path(...)):
+    return download_file_body(id, filename)
 
 @app.on_event("startup")
 @repeat_at(cron="* * * * *")
-async def cleanup():
+def cleanup():
     try:
         for file in listdir(DIRECTORY):
             target_path = path.join(DIRECTORY, file)
