@@ -10,4 +10,4 @@ services:
         environment:
             - DIRECTORY=/usr/src/app/uploads
         ports:
-            - "${PORT:?80}:80"
+            - ${PORT:?80}:80

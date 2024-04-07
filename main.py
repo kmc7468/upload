@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Path, Request, Response
 from fastapi.responses import FileResponse
-from os import environ, path
+from fastapi_utilities import repeat_at
+from os import environ, listdir, path, remove
 import random
 import string
+from time import time
 import uvicorn
 
 def get_integer_env(name: str, default: int, min_value: int = 1):
@@ -22,6 +24,7 @@ PORT = get_integer_env("PORT", 80, 0)
 ID_LENGTH = get_integer_env("ID_LENGTH", 6)
 ID_REGEX = f"^[a-zA-Z0-9]{{{ID_LENGTH}}}$"
 MAX_FILE_SIZE = get_integer_env("MAX_FILE_SIZE", 1073741824) # Default: 1 GiB
+FILE_EXPIRES = get_integer_env("FILE_EXPIRES", 3600) # Default: 1 hour
 
 DIRECTORY = environ.get("DIRECTORY")
 if DIRECTORY is None:
@@ -85,6 +88,17 @@ async def download_file(id: str = Path(..., pattern=ID_REGEX)):
 @app.get("/{id}/{filename}")
 async def download_file_as(id: str = Path(..., pattern=ID_REGEX), filename: str = Path(...)):
     return download_file_body(id)
+
+@app.on_event("startup")
+@repeat_at(cron="* * * * *")
+async def cleanup():
+    try:
+        for file in listdir(DIRECTORY):
+            target_path = path.join(DIRECTORY, file)
+            if path.isfile(target_path) and path.getmtime(target_path) + FILE_EXPIRES < time():
+                remove(target_path)
+    except:
+        pass
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)
