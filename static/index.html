@@ -20,6 +20,8 @@
         </div>
         <div>
             <h2>Upload</h2>
+            <p id="curl">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me</code></p>
+            <p id="curlDisposable" style="display: none;">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code></p>
             <form>
                 <label for="isDisposable">
                     <input type="checkbox" id="isDisposable" />
@@ -33,6 +35,8 @@
 
         <script>
             var fileInput = document.getElementById("fileInput");
+            var curl = document.getElementById("curl");
+            var curlDisposable = document.getElementById("curlDisposable");
             var isDisposable = document.getElementById("isDisposable");
 
             fileInput.addEventListener("change", function() {
@@ -45,6 +49,15 @@
                 }
 
                 uploadFile(file);
+            });
+            isDisposable.addEventListener("change", function() {
+                if (isDisposable.checked) {
+                    curl.style.display = "none";
+                    curlDisposable.style.display = "block";
+                } else {
+                    curl.style.display = "block";
+                    curlDisposable.style.display = "none";
+                }
             });
 
             function uploadFile(file) {
