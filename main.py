@@ -3,39 +3,35 @@ from fastapi.responses import FileResponse
 from os import environ, path
 import random
 import string
+import uvicorn
+
+def get_integer_env(name: str, default: int, min_value: int = 1):
+    value = environ.get(name)
+    if value is not None:
+        try:
+            value = int(value)
+            if value < min_value:
+                raise ValueError(f"{name} must be at least {min_value}")
+            return value
+        except:
+            raise ValueError(f"{name} must be an integer")
+    else:
+        return default
+
+PORT = get_integer_env("PORT", 80, 0)
+ID_LENGTH = get_integer_env("ID_LENGTH", 6)
+ID_REGEX = f"^[a-zA-Z0-9]{{{ID_LENGTH}}}$"
+MAX_FILE_SIZE = get_integer_env("MAX_FILE_SIZE", 1073741824) # Default: 1 GiB
 
 DIRECTORY = environ.get("DIRECTORY")
 if DIRECTORY is None:
     raise ValueError("DIRECTORY environment variable must be set")
 elif not path.exists(DIRECTORY):
-    raise ValueError(f"DIRECTORY {DIRECTORY} does not exist")
+    raise ValueError(f"DIRECTORY \"{DIRECTORY}\" does not exist")
 elif not path.isdir(DIRECTORY):
-    raise ValueError(f"DIRECTORY {DIRECTORY} is not a directory")
+    raise ValueError(f"DIRECTORY \"{DIRECTORY}\" is not a directory")
 
-ID_LENGTH = environ.get("ID_LENGTH")
-if ID_LENGTH is not None:
-    try:
-        ID_LENGTH = int(ID_LENGTH)
-        if ID_LENGTH <= 0:
-            raise ValueError("ID_LENGTH must be a positive integer")
-    except:
-        raise ValueError("ID_LENGTH must be a positive integer")
-else:
-    ID_LENGTH = 6 # Default value for ID_LENGTH
-
-ID_REGEX = f"^[a-zA-Z0-9]{{{ID_LENGTH}}}$"
-
-MAX_FILE_SIZE = environ.get("MAX_FILE_SIZE")
-if MAX_FILE_SIZE is not None:
-    try:
-        MAX_FILE_SIZE = int(MAX_FILE_SIZE)
-        if MAX_FILE_SIZE <= 0:
-            raise ValueError("MAX_FILE_SIZE must be a positive integer")
-    except:
-        raise ValueError("MAX_FILE_SIZE must be a positive integer")
-else:
-    MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024 # Default value for MAX_FILE_SIZE, which is 1 GiB
-
+print(f"PORT={PORT}")
 print(f"DIRECTORY=\"{path.abspath(DIRECTORY)}\"")
 print(f"ID_LENGTH={ID_LENGTH}")
 print(f"MAX_FILE_SIZE={MAX_FILE_SIZE}")
@@ -83,9 +79,12 @@ def download_file_body(id: str):
         return Response(status_code=500)
 
 @app.get("/{id}")
-async def download_file(id: str = Path(..., regex=ID_REGEX)):
+async def download_file(id: str = Path(..., pattern=ID_REGEX)):
     return download_file_body(id)
 
 @app.get("/{id}/{filename}")
-async def download_file_as(id: str = Path(..., regex=ID_REGEX), filename: str = Path(...)):
+async def download_file_as(id: str = Path(..., pattern=ID_REGEX), filename: str = Path(...)):
     return download_file_body(id)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
