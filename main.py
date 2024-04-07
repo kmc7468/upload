@@ -54,18 +54,18 @@ def generate_random_filename(length: int):
 def generate_unique_filename():
     while True:
         filename = generate_random_filename(ID_LENGTH)
-        if not path.exists(path.join(DIRECTORY, filename)):
+        if not path.exists(path.join(DIRECTORY, filename)) and not path.exists(path.join(DIRECTORY, filename + ".d")):
             return filename
 
 @app.get("/")
 def index():
     try:
         return FileResponse("static/index.html", media_type="text/html")
-    except:
+    except Exception as e:
+        print(e)
         return Response(status_code=500)
 
-@app.put("/{filename}")
-async def upload_file(filename: str, request: Request):
+async def upload_file_body(filename: str, request: Request, disposable: bool):
     try:
         host = request.headers.get("Host")
         if host is None:
@@ -76,22 +76,40 @@ async def upload_file(filename: str, request: Request):
             return Response(status_code=413)
 
         target_filename = generate_unique_filename()
-        target_path = path.join(DIRECTORY, target_filename)
+        target_path = path.join(DIRECTORY, target_filename + (".d" if disposable else ""))
         with open(target_path, "wb") as file:
             file.write(await request.body())
 
         return PlainTextResponse(f"https://{host}/{target_filename}/{quote(filename)}\n")
-    except:
+    except Exception as e:
+        print(e)
         return Response(status_code=500)
+
+@app.put("/d/{filename}")
+async def upload_file_disposable(filename: str, request: Request):
+    return await upload_file_body(filename, request, True)
+
+@app.put("/{filename}")
+async def upload_file(filename: str, request: Request):
+    return await upload_file_body(filename, request, False)
 
 def download_file_body(id: str, filename: str | None):
     try:
         target_path = path.join(DIRECTORY, id)
-        if not path.exists(target_path):
-            return Response(status_code=404)
+        if path.exists(target_path):
+            return FileResponse(target_path, media_type=mime.from_file(target_path), filename=filename)
 
-        return FileResponse(target_path, media_type=mime.from_file(target_path), filename=filename)
-    except:
+        target_path = path.join(DIRECTORY, id + ".d")
+        if path.exists(target_path):
+            with open(target_path, "rb") as file:
+                data = file.read()
+            remove(target_path)
+
+            return Response(content=data, media_type=mime.from_buffer(data), headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+        return Response(status_code=404)
+    except Exception as e:
+        print(e)
         return Response(status_code=500)
 
 @app.get("/{id}")
@@ -110,7 +128,8 @@ def cleanup():
             target_path = path.join(DIRECTORY, file)
             if path.isfile(target_path) and path.getmtime(target_path) + FILE_EXPIRES < time():
                 remove(target_path)
-    except:
+    except Exception as e:
+        print(e)
         pass
 
 if __name__ == "__main__":

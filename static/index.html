@@ -20,12 +20,22 @@
         </div>
         <div>
             <h2>Upload</h2>
-            <input type="file" id="fileInput" />
+            <form>
+                <label for="isDisposable">
+                    <input type="checkbox" id="isDisposable" />
+                    Allow only one download (check or uncheck it <strong>before</strong> selecting a file)
+                </label>
+                <br /><br />
+                <input type="file" id="fileInput" />
+            </form>
             <p><a id="status" style="display: none;"></a><strong><a id="url" style="display: none;"></a></strong></p>
         </div>
 
         <script>
-            document.getElementById("fileInput").addEventListener("change", function() {
+            var fileInput = document.getElementById("fileInput");
+            var isDisposable = document.getElementById("isDisposable");
+
+            fileInput.addEventListener("change", function() {
                 var file = this.files[0];
                 if (!file) return;
 
@@ -41,7 +51,7 @@
                 var filename = encodeURI(file.name);
 
                 var xhr = new XMLHttpRequest();
-                xhr.open("PUT", `https://upload.minchan.me/${filename}`, true);
+                xhr.open("PUT", `https://upload.minchan.me/${isDisposable.checked ? "d/" : ""}${filename}`, true);
                 xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
                 xhr.onload = function() {
@@ -60,7 +70,6 @@
             }
 
             function showUploadingMessage() {
-                var fileInput = document.getElementById("fileInput");
                 fileInput.disabled = true;
 
                 var status = document.getElementById("status");
@@ -69,10 +78,11 @@
 
                 var url = document.getElementById("url");
                 url.style.display = "none";
+
+                isDisposable.disabled = true;
             }
 
             function showDownloadUrl(downloadUrl) {
-                var fileInput = document.getElementById("fileInput");
                 fileInput.disabled = false;
 
                 var status = document.getElementById("status");
@@ -84,11 +94,12 @@
                 url.href = downloadUrl;
                 url.style.display = "inline";
 
+                isDisposable.disabled = false;
+
                 alert("The file has been uploaded successfully.");
             }
 
             function showErrorMessage() {
-                var fileInput = document.getElementById("fileInput");
                 fileInput.disabled = false;
 
                 var status = document.getElementById("status");
@@ -97,6 +108,8 @@
 
                 var url = document.getElementById("url");
                 url.style.display = "none";
+
+                isDisposable.disabled = false;
 
                 alert("An error occurred while uploading the file.");
             }
