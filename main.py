@@ -38,6 +38,7 @@ print(f"PORT={PORT}")
 print(f"DIRECTORY=\"{path.abspath(DIRECTORY)}\"")
 print(f"ID_LENGTH={ID_LENGTH}")
 print(f"MAX_FILE_SIZE={MAX_FILE_SIZE}")
+print(f"FILE_EXPIRES={FILE_EXPIRES}")
 
 app = FastAPI()
 

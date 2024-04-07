@@ -8,6 +8,9 @@ services:
         tmpfs:
             - /usr/src/app/uploads:size=2G
         environment:
+            - ID_LENGTH
+            - MAX_FILE_SIZE
+            - FILE_EXPIRES
             - DIRECTORY=/usr/src/app/uploads
         ports:
             - ${PORT:?80}:80

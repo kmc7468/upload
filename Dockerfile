@@ -6,4 +6,4 @@ RUN ["pip", "install", "-r", "requirements.txt"]
 
 COPY main.py .
 
-ENTRYPOINT ["python", "main.py"]
+ENTRYPOINT ["python", "-u", "main.py"]
