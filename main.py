@@ -72,11 +72,11 @@ def generate_unique_filename():
       return filename
 
 def get_client_ip(request: Request):
-  x_forwarded_for = request.headers.get("X-Forwarded-For")
-  if x_forwarded_for is not None:
-    return x_forwarded_for.split(",")[-(TRUST_PROXY + 1)].strip()
-  elif TRUST_PROXY > 0:
-    raise ValueError("X-Forwarded-For header must be set")
+  if TRUST_PROXY > 0:
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for is None:
+      raise ValueError("X-Forwarded-For header must be set")
+    return x_forwarded_for.split(",")[-TRUST_PROXY].strip()
   else:
     return request.client.host
 
