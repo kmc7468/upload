@@ -86,10 +86,21 @@ async def upload_file_body(filename: str, request: Request, disposable: bool):
     if host is None:
       return Response(status_code=400)
 
-    file = await request.body()
-    if len(file) == 0:
+    content_length = request.headers.get("Content-Length")
+    if content_length is None:
+      return Response(status_code=411)
+    try:
+      content_length = int(content_length)
+      if content_length > MAX_FILE_SIZE:
+        return Response(status_code=413)
+    except:
       return Response(status_code=400)
-    elif len(file) > MAX_FILE_SIZE:
+
+    file = await request.body()
+    file_length = len(file)
+    if file_length == 0 or file_length != content_length:
+      return Response(status_code=400)
+    elif file_length > MAX_FILE_SIZE:
       return Response(status_code=413)
 
     hash = sha256(file).hexdigest()
@@ -101,7 +112,7 @@ async def upload_file_body(filename: str, request: Request, disposable: bool):
     with open(target_path, "wb") as target_file:
       target_file.write(file)
 
-    logger.info(f"File \"{filename}\" uploaded as \"{target_filename_real}\" with hash \"{hash}\" by \"{client_ip}\"")
+    logger.info(f"File \"{filename}\" uploaded as \"{target_filename_real}\" with hash \"{hash}\" by \"{client_ip}\" ({file_length} bytes)")
 
     return PlainTextResponse(f"https://{host}/{target_filename}/{quote(filename)}\n")
   except Exception as e:
