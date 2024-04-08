@@ -7,7 +7,7 @@
 - 제공되는 `docker-compose.yml` 파일을 이용할 경우, 램 디스크에 업로드된 파일을 저장합니다.
 
 ## Environment Variables
-- `PORT`: 서버가 실행되는 포트입니다. 제공되는 `docker-compose.yml` 파일을 이용할 경우, 80으로 고정됩니다.
+- `PORT`: 서버가 실행되는 포트입니다. 기본 값은 80입니다.
 - `ID_LENGTH`: 업로드된 파일마다 부여되는 ID의 길이입니다. 기본 값은 6입니다.
 - `MAX_FILE_SIZE`: 업로드할 수 있는 파일의 최대 크기(bytes)입니다. 기본 값은 1 GiB입니다.
 - `FILE_EXPIRES`: 업로드된 파일의 유효 시간(seconds)입니다. 기본 값은 1시간입니다.
