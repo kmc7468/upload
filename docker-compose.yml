@@ -1,16 +1,16 @@
 version: "3.6"
 
 services:
-    server:
-        container_name: upload-server
-        build: .
-        restart: always
-        tmpfs:
-            - /usr/src/app/uploads:size=${TMPFS_SIZE:-2G}
-        environment:
-            - ID_LENGTH
-            - MAX_FILE_SIZE
-            - FILE_EXPIRES
-            - DIRECTORY=/usr/src/app/uploads
-        ports:
-            - ${PORT:-80}:80
+  server:
+    container_name: upload-server
+    build: .
+    restart: always
+    tmpfs:
+      - /usr/src/app/uploads:size=${TMPFS_SIZE:-2G}
+    environment:
+      - ID_LENGTH
+      - MAX_FILE_SIZE
+      - FILE_EXPIRES
+      - DIRECTORY=/usr/src/app/uploads
+    ports:
+      - ${PORT:-80}:80

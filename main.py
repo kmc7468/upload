@@ -10,17 +10,17 @@ from urllib.parse import quote
 import uvicorn
 
 def get_integer_env(name: str, default: int, min_value: int = 1):
-    value = environ.get(name)
-    if value is not None:
-        try:
-            value = int(value)
-            if value < min_value:
-                raise ValueError(f"{name} must be at least {min_value}")
-            return value
-        except:
-            raise ValueError(f"{name} must be an integer")
-    else:
-        return default
+  value = environ.get(name)
+  if value is not None:
+    try:
+      value = int(value)
+      if value < min_value:
+        raise ValueError(f"{name} must be at least {min_value}")
+      return value
+    except:
+      raise ValueError(f"{name} must be an integer")
+  else:
+    return default
 
 PORT = get_integer_env("PORT", 80, 0)
 ID_LENGTH = get_integer_env("ID_LENGTH", 6)
@@ -30,11 +30,11 @@ FILE_EXPIRES = get_integer_env("FILE_EXPIRES", 3600) # Default: 1 hour
 
 DIRECTORY = environ.get("DIRECTORY")
 if DIRECTORY is None:
-    raise ValueError("DIRECTORY environment variable must be set")
+  raise ValueError("DIRECTORY environment variable must be set")
 elif not path.exists(DIRECTORY):
-    raise ValueError(f"DIRECTORY \"{DIRECTORY}\" does not exist")
+  raise ValueError(f"DIRECTORY \"{DIRECTORY}\" does not exist")
 elif not path.isdir(DIRECTORY):
-    raise ValueError(f"DIRECTORY \"{DIRECTORY}\" is not a directory")
+  raise ValueError(f"DIRECTORY \"{DIRECTORY}\" is not a directory")
 
 print(f"PORT={PORT}")
 print(f"DIRECTORY=\"{path.abspath(DIRECTORY)}\"")
@@ -46,91 +46,91 @@ app = FastAPI()
 mime = Magic(mime=True)
 
 def generate_random_filename(length: int):
-    chars = string.ascii_letters + string.digits
+  chars = string.ascii_letters + string.digits
 
-    result = "".join(random.choices(chars, k=length))
-    return result
+  result = "".join(random.choices(chars, k=length))
+  return result
 
 def generate_unique_filename():
-    while True:
-        filename = generate_random_filename(ID_LENGTH)
-        if not path.exists(path.join(DIRECTORY, filename)) and not path.exists(path.join(DIRECTORY, filename + ".d")):
-            return filename
+  while True:
+    filename = generate_random_filename(ID_LENGTH)
+    if not path.exists(path.join(DIRECTORY, filename)) and not path.exists(path.join(DIRECTORY, filename + ".d")):
+      return filename
 
 @app.get("/")
 def index():
-    try:
-        return FileResponse("static/index.html", media_type="text/html")
-    except Exception as e:
-        print(e)
-        return Response(status_code=500)
+  try:
+    return FileResponse("static/index.html", media_type="text/html")
+  except Exception as e:
+    print(e)
+    return Response(status_code=500)
 
 async def upload_file_body(filename: str, request: Request, disposable: bool):
-    try:
-        host = request.headers.get("Host")
-        if host is None:
-            return Response(status_code=400)
+  try:
+    host = request.headers.get("Host")
+    if host is None:
+      return Response(status_code=400)
 
-        file = await request.body()
-        if len(file) > MAX_FILE_SIZE:
-            return Response(status_code=413)
+    file = await request.body()
+    if len(file) > MAX_FILE_SIZE:
+      return Response(status_code=413)
 
-        target_filename = generate_unique_filename()
-        target_path = path.join(DIRECTORY, target_filename + (".d" if disposable else ""))
-        with open(target_path, "wb") as file:
-            file.write(await request.body())
+    target_filename = generate_unique_filename()
+    target_path = path.join(DIRECTORY, target_filename + (".d" if disposable else ""))
+    with open(target_path, "wb") as file:
+      file.write(await request.body())
 
-        return PlainTextResponse(f"https://{host}/{target_filename}/{quote(filename)}\n")
-    except Exception as e:
-        print(e)
-        return Response(status_code=500)
+    return PlainTextResponse(f"https://{host}/{target_filename}/{quote(filename)}\n")
+  except Exception as e:
+    print(e)
+    return Response(status_code=500)
 
 @app.put("/d/{filename}")
 async def upload_file_disposable(filename: str, request: Request):
-    return await upload_file_body(filename, request, True)
+  return await upload_file_body(filename, request, True)
 
 @app.put("/{filename}")
 async def upload_file(filename: str, request: Request):
-    return await upload_file_body(filename, request, False)
+  return await upload_file_body(filename, request, False)
 
 def download_file_body(id: str, filename: str | None):
-    try:
-        target_path = path.join(DIRECTORY, id)
-        if path.exists(target_path):
-            return FileResponse(target_path, media_type=mime.from_file(target_path), filename=filename)
+  try:
+    target_path = path.join(DIRECTORY, id)
+    if path.exists(target_path):
+      return FileResponse(target_path, media_type=mime.from_file(target_path), filename=filename)
 
-        target_path = path.join(DIRECTORY, id + ".d")
-        if path.exists(target_path):
-            with open(target_path, "rb") as file:
-                data = file.read()
-            remove(target_path)
+    target_path = path.join(DIRECTORY, id + ".d")
+    if path.exists(target_path):
+      with open(target_path, "rb") as file:
+        data = file.read()
+      remove(target_path)
 
-            return Response(content=data, media_type=mime.from_buffer(data), headers={"Content-Disposition": f"attachment; filename={filename}"})
+      return Response(content=data, media_type=mime.from_buffer(data), headers={"Content-Disposition": f"attachment; filename={filename}"})
 
-        return Response(status_code=404)
-    except Exception as e:
-        print(e)
-        return Response(status_code=500)
+    return Response(status_code=404)
+  except Exception as e:
+    print(e)
+    return Response(status_code=500)
 
 @app.get("/{id}")
 def download_file(id: str = Path(..., pattern=ID_REGEX)):
-    return download_file_body(id, None)
+  return download_file_body(id, None)
 
 @app.get("/{id}/{filename}")
 def download_file_as(id: str = Path(..., pattern=ID_REGEX), filename: str = Path(...)):
-    return download_file_body(id, filename)
+  return download_file_body(id, filename)
 
 @app.on_event("startup")
 @repeat_at(cron="* * * * *")
 def cleanup():
-    try:
-        for file in listdir(DIRECTORY):
-            target_path = path.join(DIRECTORY, file)
-            if path.isfile(target_path) and path.getmtime(target_path) + FILE_EXPIRES < time():
-                remove(target_path)
-    except Exception as e:
-        print(e)
-        pass
+  try:
+    for file in listdir(DIRECTORY):
+      target_path = path.join(DIRECTORY, file)
+      if path.isfile(target_path) and path.getmtime(target_path) + FILE_EXPIRES < time():
+        remove(target_path)
+  except Exception as e:
+    print(e)
+    pass
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+  uvicorn.run(app, host="0.0.0.0", port=PORT)

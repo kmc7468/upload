@@ -1,132 +1,132 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width" />
-        <title>Minchan's Upload</title>
-    </head>
-    <body>
-        <div>
-            <h1>Minchan's Upload</h1>
-            <p>
-                GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
-                Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
-            </p>
-        </div>
-        <div>
-            <h2>Notes</h2>
-            <p>You can upload files up to <strong>1 GiB</strong> in size. Uploaded files are automatically deleted after <strong>1 hour.</strong> However, they may be deleted earlier depending on the server's situation.</p>
-            <p>The server has 4 GiB of storage space available. In case of high user traffic, it may not be possible to upload files.</p>
-            <p>You can download files with just a 6-letters ID assigned to each file. <strong>Do not upload illegal or important files!</strong></p>
-        </div>
-        <div>
-            <h2>Upload</h2>
-            <p id="curl">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me</code></p>
-            <p id="curlDisposable" style="display: none;">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code></p>
-            <form>
-                <label for="isDisposable">
-                    <input type="checkbox" id="isDisposable" />
-                    Allow only one download (check or uncheck it <strong>before</strong> selecting a file)
-                </label>
-                <br /><br />
-                <input type="file" id="fileInput" />
-            </form>
-            <p><a id="status" style="display: none;"></a><strong><a id="url" style="display: none; word-break: break-all;"></a></strong></p>
-        </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Minchan's Upload</title>
+  </head>
+  <body>
+    <div>
+      <h1>Minchan's Upload</h1>
+      <p>
+        GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
+        Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
+      </p>
+    </div>
+    <div>
+      <h2>Notes</h2>
+      <p>You can upload files up to <strong>1 GiB</strong> in size. Uploaded files are automatically deleted after <strong>1 hour.</strong> However, they may be deleted earlier depending on the server's situation.</p>
+      <p>The server has 4 GiB of storage space available. In case of high user traffic, it may not be possible to upload files.</p>
+      <p>You can download files with just a 6-letters ID assigned to each file. <strong>Do not upload illegal or important files!</strong></p>
+    </div>
+    <div>
+      <h2>Upload</h2>
+      <p id="curl">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me</code></p>
+      <p id="curlDisposable" style="display: none;">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code></p>
+      <form>
+        <label for="isDisposable">
+          <input type="checkbox" id="isDisposable" />
+          Allow only one download (check or uncheck it <strong>before</strong> selecting a file)
+        </label>
+        <br /><br />
+        <input type="file" id="fileInput" />
+      </form>
+      <p><a id="status" style="display: none;"></a><strong><a id="url" style="display: none; word-break: break-all;"></a></strong></p>
+    </div>
 
-        <script>
-            var fileInput = document.getElementById("fileInput");
-            var curl = document.getElementById("curl");
-            var curlDisposable = document.getElementById("curlDisposable");
-            var isDisposable = document.getElementById("isDisposable");
+    <script>
+      var fileInput = document.getElementById("fileInput");
+      var curl = document.getElementById("curl");
+      var curlDisposable = document.getElementById("curlDisposable");
+      var isDisposable = document.getElementById("isDisposable");
 
-            fileInput.addEventListener("change", function() {
-                var file = this.files[0];
-                if (!file) return;
+      fileInput.addEventListener("change", function() {
+        var file = this.files[0];
+        if (!file) return;
 
-                if (file.size > 1073741824) {
-                    alert("The file is too large.");
-                    return;
-                }
+        if (file.size > 1073741824) {
+          alert("The file is too large.");
+          return;
+        }
 
-                uploadFile(file);
-            });
-            isDisposable.addEventListener("change", function() {
-                if (isDisposable.checked) {
-                    curl.style.display = "none";
-                    curlDisposable.style.display = "block";
-                } else {
-                    curl.style.display = "block";
-                    curlDisposable.style.display = "none";
-                }
-            });
+        uploadFile(file);
+      });
+      isDisposable.addEventListener("change", function() {
+        if (isDisposable.checked) {
+          curl.style.display = "none";
+          curlDisposable.style.display = "block";
+        } else {
+          curl.style.display = "block";
+          curlDisposable.style.display = "none";
+        }
+      });
 
-            function uploadFile(file) {
-                var filename = encodeURI(file.name);
+      function uploadFile(file) {
+        var filename = encodeURI(file.name);
 
-                var xhr = new XMLHttpRequest();
-                xhr.open("PUT", `https://upload.minchan.me/${isDisposable.checked ? "d/" : ""}${filename}`, true);
-                xhr.setRequestHeader("Content-Type", "application/octet-stream");
+        var xhr = new XMLHttpRequest();
+        xhr.open("PUT", `https://upload.minchan.me/${isDisposable.checked ? "d/" : ""}${filename}`, true);
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
-                xhr.onload = function() {
-                    if (xhr.status === 200) {
-                        showDownloadUrl(xhr.responseText.substring(0, xhr.responseText.length - 1));
-                    } else {
-                        showErrorMessage();
-                    }
-                };
-                xhr.onerror = function() {
-                    showErrorMessage();
-                };
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            showDownloadUrl(xhr.responseText.substring(0, xhr.responseText.length - 1));
+          } else {
+            showErrorMessage();
+          }
+        };
+        xhr.onerror = function() {
+          showErrorMessage();
+        };
 
-                showUploadingMessage();
-                xhr.send(file);
-            }
+        showUploadingMessage();
+        xhr.send(file);
+      }
 
-            function showUploadingMessage() {
-                fileInput.disabled = true;
+      function showUploadingMessage() {
+        fileInput.disabled = true;
 
-                var status = document.getElementById("status");
-                status.textContent = "Uploading the file...";
-                status.style.display = "inline";
+        var status = document.getElementById("status");
+        status.textContent = "Uploading the file...";
+        status.style.display = "inline";
 
-                var url = document.getElementById("url");
-                url.style.display = "none";
+        var url = document.getElementById("url");
+        url.style.display = "none";
 
-                isDisposable.disabled = true;
-            }
+        isDisposable.disabled = true;
+      }
 
-            function showDownloadUrl(downloadUrl) {
-                fileInput.disabled = false;
+      function showDownloadUrl(downloadUrl) {
+        fileInput.disabled = false;
 
-                var status = document.getElementById("status");
-                status.textContent = "Download URL: ";
-                status.style.display = "inline";
+        var status = document.getElementById("status");
+        status.textContent = "Download URL: ";
+        status.style.display = "inline";
 
-                var url = document.getElementById("url");
-                url.textContent = downloadUrl;
-                url.href = downloadUrl;
-                url.style.display = "inline";
+        var url = document.getElementById("url");
+        url.textContent = downloadUrl;
+        url.href = downloadUrl;
+        url.style.display = "inline";
 
-                isDisposable.disabled = false;
+        isDisposable.disabled = false;
 
-                alert("The file has been uploaded successfully.");
-            }
+        alert("The file has been uploaded successfully.");
+      }
 
-            function showErrorMessage() {
-                fileInput.disabled = false;
+      function showErrorMessage() {
+        fileInput.disabled = false;
 
-                var status = document.getElementById("status");
-                status.textContent = "Failed to upload the file!";
-                status.style.display = "inline";
+        var status = document.getElementById("status");
+        status.textContent = "Failed to upload the file!";
+        status.style.display = "inline";
 
-                var url = document.getElementById("url");
-                url.style.display = "none";
+        var url = document.getElementById("url");
+        url.style.display = "none";
 
-                isDisposable.disabled = false;
+        isDisposable.disabled = false;
 
-                alert("An error occurred while uploading the file.");
-            }
-        </script>
-    </body>
+        alert("An error occurred while uploading the file.");
+      }
+    </script>
+  </body>
 </html>
