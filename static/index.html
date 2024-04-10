@@ -6,34 +6,45 @@
     <title>Minchan's Upload</title>
   </head>
   <body>
-    <div>
-      <h1>Minchan's Upload</h1>
-      <p>
-        GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
-        Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
-      </p>
+    <div id="main">
+      <div>
+        <h1>Minchan's Upload</h1>
+        <p>
+          GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
+          Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
+        </p>
+      </div>
+      <div>
+        <h2>Upload</h2>
+        <p id="curl">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me</code></p>
+        <p id="curlDisposable" style="display: none;">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code></p>
+        <form>
+          <label for="isDisposable">
+            <input type="checkbox" id="isDisposable" />
+            Allow only one download (check or uncheck it <strong>before</strong> selecting a file)
+          </label>
+          <br /><br />
+          <input type="file" id="fileInput" />
+        </form>
+        <p><a id="status" style="display: none;"></a><strong><a id="url" style="display: none; word-break: break-all;"></a></strong></p>
+      </div>
+      <div>
+        <h2>Notes</h2>
+        <p>You can upload files up to <strong>1 GiB</strong> in size. Uploaded files are automatically deleted after <strong>1 hour.</strong> However, they may be deleted earlier depending on the server's situation.</p>
+        <p>The server has 4 GiB of storage space available. In case of high user traffic, it may not be possible to upload files.</p>
+        <p>The following information will be <strong>permanently</strong> stored on the server when uploading or downloading files: the name, size, hash of the uploaded file, and your IP address.</p>
+        <p>You can download files with just a 6-letters ID assigned to each file. <strong>Do not upload illegal or important files!</strong></p>
+      </div>
     </div>
-    <div>
-      <h2>Notes</h2>
-      <p>You can upload files up to <strong>1 GiB</strong> in size. Uploaded files are automatically deleted after <strong>1 hour.</strong> However, they may be deleted earlier depending on the server's situation.</p>
-      <p>The server has 4 GiB of storage space available. In case of high user traffic, it may not be possible to upload files.</p>
-      <p>You can download files with just a 6-letters ID assigned to each file. <strong>Do not upload illegal or important files!</strong></p>
-    </div>
-    <div>
-      <h2>Upload</h2>
-      <p>Your IP address, the name of the uploaded file, and the hash value of the file will be <strong>permanently</strong> stored on the server, when you upload or download it.</p>
-      <p id="curl">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me</code></p>
-      <p id="curlDisposable" style="display: none;">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code></p>
-      <form>
-        <label for="isDisposable">
-          <input type="checkbox" id="isDisposable" />
-          Allow only one download (check or uncheck it <strong>before</strong> selecting a file)
-        </label>
-        <br /><br />
-        <input type="file" id="fileInput" />
-      </form>
-      <p><a id="status" style="display: none;"></a><strong><a id="url" style="display: none; word-break: break-all;"></a></strong></p>
-    </div>
+
+    <style>
+      @media (min-width: 1280px) and (orientation: landscape) {
+        #main {
+          width: 1280px;
+          margin-left: calc((100% - 1280px) / 2);
+        }
+      }
+    </style>
 
     <script>
       var fileInput = document.getElementById("fileInput");
