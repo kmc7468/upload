@@ -3,9 +3,12 @@ from fastapi import FastAPI, Path, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi_utilities import repeat_at
 from hashlib import sha256
+from io import BytesIO
 import logging
 from magic import Magic
 from os import environ, listdir, path, remove
+from PIL import Image
+from pillow_heif import register_heif_opener
 import random
 import string
 from time import time
@@ -135,25 +138,36 @@ def read_from_file(id: str, ext: str = ""):
   else:
     return None, None
 
-def make_file_response(id: str, filename: str, file: bytes, client_ip: str):
-  logger.info(f"File \"{id}\" downloaded by \"{client_ip}\"")
-
-  disposition = f"attachment; filename={quote(filename)}" if filename is not None else "inline"
-  return Response(content=file, media_type=mime.from_buffer(file), headers={"Content-Disposition": disposition}) 
+def convert_image_format(file: bytes, to_format: str):
+  with Image.open(BytesIO(file)) as image:
+    buffer = BytesIO()
+    image.save(buffer, format=to_format)
+    return buffer.getvalue()
 
 def download_file_body(id: str, filename: str | None, request: Request):
   try:
-    client_ip = get_client_ip(request)
-    make_200_response = lambda file, ext = "": make_file_response(id + ext, filename, file, client_ip)
+    def make_file_response(file: bytes, ext: str = ""):
+      if request.query_params.get("jpg") is not None:
+        file = convert_image_format(file, "JPEG")
+      elif request.query_params.get("png") is not None:
+        file = convert_image_format(file, "PNG")
+      else:
+        return Response(status_code=400)
+
+      client_ip = get_client_ip(request)
+      logger.info(f"File \"{id + ext}\" downloaded by \"{client_ip}\"")
+
+      disposition = f"attachment; filename={quote(filename)}" if filename is not None else "inline"
+      return Response(content=file, media_type=mime.from_buffer(file), headers={"Content-Disposition": disposition})
 
     file, _ = read_from_file(id)
     if file is not None:
-      return make_200_response(file)
+      return make_file_response(file)
 
     file, target_path = read_from_file(id, ".d")
     if file is not None:
       remove(target_path)
-      return make_200_response(file, ".d")
+      return make_file_response(file, ".d")
 
     return Response(status_code=404)
   except Exception as e:
@@ -195,5 +209,7 @@ if __name__ == "__main__":
   logger.debug(f"TRUST_PROXY={TRUST_PROXY}")
   logger.debug(f"DIRECTORY=\"{DIRECTORY}\"")
   logger.debug(f"LOG_DIRECTORY=\"{LOG_DIRECTORY}\"")
+
+  register_heif_opener()
 
   uvicorn.run(app, host="0.0.0.0", port=PORT)
