@@ -162,11 +162,23 @@ def read_from_file(id: str, ext: str = ""):
 
 def convert_image_format(file: bytes, to_format: str):
   with Image.open(BytesIO(file)) as image:
+    params = {}
+
+    if to_format == "JPEG":
+      params["quality"] = 95 # Best
+      params["subsampling"] = 0 # 4:4:4
+    elif to_format == "PNG":
+      pass
+    else:
+      raise ValueError(f"\"{to_format}\" is not a supported format")
+
+    if image.info.get("exif") is not None:
+      params["exif"] = image.info.get("exif")
+    if image.info.get("icc_profile") is not None:
+      params["icc_profile"] = image.info.get("icc_profile")
+
     buffer = BytesIO()
-    image.save(buffer, format=to_format,
-               icc_profile=image.info.get("icc_profile"), exif=image.info.get("exif"),
-               subsampling=0, quality=95, # For JPEG
-               )
+    image.save(buffer, format=to_format, **params)
     return buffer.getvalue()
 
 def read_from_converted_file(id: str, org_file: bytes, format: str, cache: bool):
