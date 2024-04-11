@@ -163,31 +163,34 @@ def read_from_file(id: str, ext: str = ""):
 def convert_image_format(file: bytes, to_format: str):
   with Image.open(BytesIO(file)) as image:
     params = {}
-
-    if to_format == "JPEG":
-      params["quality"] = 95 # Best
-      params["subsampling"] = 0 # 4:4:4
-    elif to_format == "PNG":
-      pass
-    else:
-      raise ValueError(f"\"{to_format}\" is not a supported format")
-
     if image.info.get("exif") is not None:
       params["exif"] = image.info.get("exif")
     if image.info.get("icc_profile") is not None:
       params["icc_profile"] = image.info.get("icc_profile")
 
+    if to_format == "JPEG":
+      params["quality"] = 95 # Best
+      params["subsampling"] = 0 # 4:4:4
+
     buffer = BytesIO()
     image.save(buffer, format=to_format, **params)
     return buffer.getvalue()
 
-def read_from_converted_file(id: str, org_file: bytes, format: str, cache: bool):
+def read_from_converted_file(id: str, org_file: bytes, org_mime: str, format: str, cache: bool):
   target_path = path.join(CONVERT_DIRECTORY, id + "." + format)
   if cache and path.exists(target_path):
     with open(target_path, "rb") as target_file:
       return target_file.read()
   else:
-    file = convert_image_format(org_file, format)
+    if format == "JPEG" or format == "PNG":
+      if not org_mime.startswith("image/"):
+        return Response(status_code=415)
+      elif len(org_file) > MAX_CONVERTIBLE_IMAGE_SIZE:
+        return Response(status_code=413)
+      file = convert_image_format(org_file, format)
+    else:
+      raise ValueError(f"{format} is not a supported format")
+
     if cache and len(file) <= MAX_FILE_SIZE:
       with open(target_path, "wb") as target_file:
         target_file.write(file)
@@ -207,9 +210,9 @@ def download_file_body(id: str, filename: str | None, request: Request):
     def make_file_response(file: bytes, ext: str = ""):
       required_format = extract_required_format(request)
       if required_format is not None:
-        if len(file) > MAX_CONVERTIBLE_IMAGE_SIZE:
-          return Response(status_code=413)
-        file = read_from_converted_file(id, file, required_format, ext != ".d")
+        file = read_from_converted_file(id, file, mime.from_buffer(file), required_format, ext != ".d")
+        if isinstance(file, Response):
+          return file
 
       client_ip = get_client_ip(request)
       logger.info(f"File \"{id + ext}\" downloaded by \"{client_ip}\"")
