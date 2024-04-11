@@ -1,4 +1,6 @@
 fastapi~=0.110.1
 fastapi-utilities~=0.2.0
+pillow~=10.3.0
+pillow_heif~=0.16.0
 python-magic~=0.4.27
 uvicorn~=0.29.0

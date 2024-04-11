@@ -6,7 +6,7 @@ from hashlib import sha256
 from io import BytesIO
 import logging
 from magic import Magic
-from os import environ, listdir, path, remove
+from os import environ, listdir, makedirs, path, remove
 from PIL import Image
 from pillow_heif import register_heif_opener
 import random
@@ -14,6 +14,10 @@ import string
 from time import time
 from urllib.parse import quote
 import uvicorn
+
+#################################
+##### Environment variables #####
+#################################
 
 def get_integer_env(name: str, default: int, min_value: int = 1):
   value = environ.get(name)
@@ -49,11 +53,20 @@ FILE_EXPIRES = get_integer_env("FILE_EXPIRES", 3600) # Default: 1 hour
 TRUST_PROXY = get_integer_env("TRUST_PROXY", 0, 0) # Default: 0
 
 DIRECTORY = get_directory_env("DIRECTORY")
+CONVERT_DIRECTORY = path.join(DIRECTORY, "converts")
 LOG_DIRECTORY = get_directory_env("LOG_DIRECTORY")
+
+############################
+##### Global variables #####
+############################
 
 app = FastAPI()
 logger = logging.getLogger(__file__)
 mime = Magic(mime=True)
+
+########################
+##### Static files #####
+########################
 
 @app.get("/")
 def index():
@@ -62,6 +75,10 @@ def index():
   except Exception as e:
     logger.error(e)
     return Response(status_code=500)
+
+#####################
+##### Uploading #####
+#####################
 
 def generate_random_filename(length: int):
   chars = string.ascii_letters + string.digits
@@ -130,6 +147,10 @@ async def upload_file(filename: str, request: Request):
 async def upload_file_disposable(filename: str, request: Request):
   return await upload_file_body(filename, request, True)
 
+#######################
+##### Downloading #####
+#######################
+
 def read_from_file(id: str, ext: str = ""):
   target_path = path.join(DIRECTORY, id + ext)
   if path.exists(target_path):
@@ -141,18 +162,39 @@ def read_from_file(id: str, ext: str = ""):
 def convert_image_format(file: bytes, to_format: str):
   with Image.open(BytesIO(file)) as image:
     buffer = BytesIO()
-    image.save(buffer, format=to_format)
+    image.save(buffer, format=to_format,
+               icc_profile=image.info.get("icc_profile"), exif=image.info.get("exif"),
+               subsampling=0, quality=95, # For JPEG
+               )
     return buffer.getvalue()
+
+def read_from_converted_file(id: str, org_file: bytes, format: str, cache: bool):
+  target_path = path.join(CONVERT_DIRECTORY, id + "." + format)
+  if cache and path.exists(target_path):
+    with open(target_path, "rb") as target_file:
+      return target_file.read()
+  else:
+    file = convert_image_format(org_file, format)
+    if cache:
+      with open(target_path, "wb") as target_file:
+        target_file.write(file)
+    return file
+
+def extract_required_format(request: Request):
+  for key in request.query_params.keys():
+    if key == "jpg" or key == "jpeg":
+      return "JPEG"
+    elif key == "png":
+      return "PNG"
+  else:
+    return None
 
 def download_file_body(id: str, filename: str | None, request: Request):
   try:
     def make_file_response(file: bytes, ext: str = ""):
-      if request.query_params.get("jpg") is not None:
-        file = convert_image_format(file, "JPEG")
-      elif request.query_params.get("png") is not None:
-        file = convert_image_format(file, "PNG")
-      else:
-        return Response(status_code=400)
+      required_format = extract_required_format(request)
+      if required_format is not None:
+        file = read_from_converted_file(id, file, required_format, ext != ".d")
 
       client_ip = get_client_ip(request)
       logger.info(f"File \"{id + ext}\" downloaded by \"{client_ip}\"")
@@ -182,6 +224,14 @@ def download_file(id: str = Path(..., pattern=ID_REGEX), request: Request = None
 def download_file_as(id: str = Path(..., pattern=ID_REGEX), filename: str = Path(...), request: Request = None):
   return download_file_body(id, filename, request)
 
+#####################
+##### Cron jobs #####
+#####################
+
+def remove_if_exists(target_path: str):
+  if path.exists(target_path):
+    remove(target_path)
+
 @app.on_event("startup")
 @repeat_at(cron="* * * * *")
 def cleanup():
@@ -190,8 +240,17 @@ def cleanup():
       target_path = path.join(DIRECTORY, filename)
       if path.isfile(target_path) and path.getmtime(target_path) + FILE_EXPIRES < time():
         remove(target_path)
+
+        if not filename.endswith(".d"):
+          remove_if_exists(path.join(CONVERT_DIRECTORY, filename + ".JPEG"))
+          remove_if_exists(path.join(CONVERT_DIRECTORY, filename + ".PNG"))
+
   except Exception as e:
     logger.error(e)
+
+######################
+##### Entrypoint #####
+######################
 
 if __name__ == "__main__":
   logger.level = logging.DEBUG
@@ -209,6 +268,11 @@ if __name__ == "__main__":
   logger.debug(f"TRUST_PROXY={TRUST_PROXY}")
   logger.debug(f"DIRECTORY=\"{DIRECTORY}\"")
   logger.debug(f"LOG_DIRECTORY=\"{LOG_DIRECTORY}\"")
+
+  if not path.exists(CONVERT_DIRECTORY):
+    makedirs(CONVERT_DIRECTORY)
+  elif not path.isdir(CONVERT_DIRECTORY):
+    raise ValueError(f"\"{CONVERT_DIRECTORY}\" is not a directory")
 
   register_heif_opener()
 
