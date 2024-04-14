@@ -12,6 +12,7 @@ services:
     environment:
       - ID_LENGTH
       - MAX_FILE_SIZE
+      - MAX_CONVERTIBLE_IMAGE_SIZE
       - FILE_EXPIRES
       - TRUST_PROXY
       - DIRECTORY=/usr/src/app/uploads
