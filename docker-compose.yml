@@ -1,5 +1,3 @@
-version: "3.6"
-
 services:
   server:
     container_name: upload-server
@@ -7,6 +5,7 @@ services:
     restart: always
     volumes:
       - upload-server-log:/usr/src/app/logs
+      - /etc/localtime:/etc/localtime:ro
     tmpfs:
       - /usr/src/app/uploads:size=${TMPFS_SIZE:-2G}
     environment:
