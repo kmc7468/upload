@@ -19,8 +19,11 @@
       </div>
       <div>
         <h2>Upload</h2>
-        <p id="curl">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me</code></p>
-        <p id="curlDisposable" style="display: none;">You may use <code>curl</code> to upload like this: <code>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code></p>
+        <p>
+          You may use <code>curl</code> to upload like this:
+          <code id="curl">curl --upload-file your_filename https://upload.minchan.me</code>
+          <code id="curlDisposable" style="display: none;">curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code>
+        </p>
         <form>
           <label for="isDisposable">
             <input type="checkbox" id="isDisposable" />
