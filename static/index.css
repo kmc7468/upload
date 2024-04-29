@@ -1,0 +1,6 @@
+@media (min-width: 1280px) and (orientation: landscape) {
+  #main {
+    width: 1280px;
+    margin-left: calc((100% - 1280px) / 2);
+  }
+}

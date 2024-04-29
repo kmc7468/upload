@@ -1,6 +1,7 @@
 from datetime import datetime
 from fastapi import FastAPI, Path, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi_utilities import repeat_at
 from hashlib import sha256
 from io import BytesIO
@@ -72,10 +73,12 @@ mime = Magic(mime=True)
 @app.get("/")
 def index():
   try:
-    return FileResponse("static/index.html", media_type="text/html")
+    return FileResponse("static/index.html")
   except Exception as e:
     logger.error(e)
     return Response(status_code=500)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 #####################
 ##### Uploading #####
