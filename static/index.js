@@ -143,3 +143,41 @@ function showErrorMessage() {
 
   alert("An error occurred while uploading the file.");
 }
+
+function convertIPv4AddressToNumber(ip) {
+  const parts = ip.split(".");
+  return (parseInt(parts[0]) << 24) + (parseInt(parts[1]) << 16) + (parseInt(parts[2]) << 8) + parseInt(parts[3]);
+}
+
+function isIPv4AddressInSubnet(ip, subnet) {
+  const [subnetIp, subnetMask] = subnet.split("/");
+  const subnetIpNumber = convertIPv4AddressToNumber(subnetIp);
+  const ipNumber = convertIPv4AddressToNumber(ip);
+  const mask = 0xFFFFFFFF << (32 - parseInt(subnetMask));
+  return (subnetIpNumber & mask) === (ipNumber & mask);
+}
+
+if (window.location.hostname === "upload.minchan.me") {
+  window.addEventListener("DOMContentLoaded", function() {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", "https://cloudflare.com/cdn-cgi/trace");
+
+    xhr.addEventListener("load", function() {
+      if (xhr.status !== 200) return;
+
+      const ip = xhr.responseText.match(/ip=(\S+)/)[1];
+      const ipv4Regex = /^\d+\.\d+\.\d+\.\d+$/;
+      if (!ipv4Regex.test(ip)) return; // KAIST network doesn't support IPv6
+
+      if (isIPv4AddressInSubnet(ip, "143.248.0.0/16") ||
+          isIPv4AddressInSubnet(ip, "110.76.64.0/18") ||
+          isIPv4AddressInSubnet(ip, "192.249.16.0/20")) {
+
+        const kaist = document.getElementById("kaist");
+        kaist.style.display = "block";
+      }
+    });
+
+    xhr.send();
+  });
+}
