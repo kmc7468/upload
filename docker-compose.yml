@@ -2,7 +2,7 @@ services:
   server:
     container_name: upload-server
     build: .
-    restart: always
+    restart: unless-stopped
     volumes:
       - upload-server-log:/usr/src/app/logs
       - /etc/localtime:/etc/localtime:ro
