@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from "$app/environment";
   import RedirectForKAIST from "./RedirectForKAIST.svelte";
   import UploadStatus from "./UploadStatus.svelte";
 
@@ -16,7 +17,9 @@
     GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
     Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
   </aside>
-  <RedirectForKAIST />
+  {#if browser && window.location.hostname === "upload.minchan.me"}
+    <RedirectForKAIST />
+  {/if}
 </header>
 
 <main>

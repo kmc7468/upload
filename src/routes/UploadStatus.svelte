@@ -1,10 +1,11 @@
 <script lang="ts">
-  type Status = "uploading" | "uploaded" | "failed";
+  let status: "uploading" | "uploaded" | "failed";
 
-  let status: Status;
   let percent: number;
   let throughput: string;
+
   let downloadURL: string;
+  let isImage: boolean;
 
   const formatThroughput = (throughput: number) => {
     const ONE_KIBI = 1024;
@@ -27,9 +28,10 @@
     percent = newPercent;
     throughput = formatThroughput(newThroughput);
   }
-  export const updateDownloadURL = (newDownloadURL: string) => {
+  export const updateDownloadURL = (newDownloadURL: string, newIsImage: boolean) => {
     status = "uploaded";
     downloadURL = newDownloadURL;
+    isImage = newIsImage;
   }
   export const displayFailure = () => {
     status = "failed";
@@ -41,14 +43,17 @@
     Uploading the file... ({percent}%, {throughput})
   {:else if status === "uploaded"}
     Download URL:
-    <a href={downloadURL}><b>{decodeURI(downloadURL)}</b></a>
+    <a id="download" href={downloadURL}><b>{decodeURI(downloadURL)}</b></a>
+    {#if isImage}
+      (convert to <a href={`${downloadURL}?jpg`}>JPEG</a> or <a href={`${downloadURL}?png`}>PNG</a>)
+    {/if}
   {:else if status === "failed"}
     Failed to upload the file!
   {/if}
 </p>
 
 <style>
-  a {
+  #download {
     word-break: break-all;
   }
 </style>
