@@ -1,5 +1,6 @@
 <script lang="ts">
-  let isKAIST = false;
+  import RedirectForKaist from "./RedirectForKAIST.svelte";
+
   let isDisposable = false;
 </script>
 
@@ -13,9 +14,8 @@
     GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
     Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
   </aside>
-  <aside hidden={!isKAIST}><p>
-    Are you in KAIST campus now?
-    You can use <a href="https://kaist.upload.minchan.me"><b>https://kaist.upload.minchan.me</b></a> for faster upload.
+  <aside>
+    <RedirectForKaist />
   </aside>
 </header>
 
