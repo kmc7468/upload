@@ -1,7 +1,9 @@
 <script lang="ts">
-  import RedirectForKaist from "./RedirectForKAIST.svelte";
+  import RedirectForKAIST from "./RedirectForKAIST.svelte";
+  import UploadStatus from "./UploadStatus.svelte";
 
   let isDisposable = false;
+  let uploadStatus: UploadStatus;
 </script>
 
 <svlete:head>
@@ -14,9 +16,7 @@
     GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
     Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
   </aside>
-  <aside>
-    <RedirectForKaist />
-  </aside>
+  <RedirectForKAIST />
 </header>
 
 <main>
@@ -35,9 +35,7 @@
       <br><br>
       <input type="file" />
     </form>
-    <p>
-      <!-- TODO -->
-    </p>
+    <UploadStatus bind:this={uploadStatus} />
   </section>
   <section>
     <h2>Notes</h2>

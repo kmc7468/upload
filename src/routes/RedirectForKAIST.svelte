@@ -13,7 +13,15 @@
   });
 </script>
 
-<p hidden={!isKAIST}>
-  Are you in KAIST campus now?
-  You can use <a href="https://kaist.upload.minchan.me"><b>https://kaist.upload.minchan.me</b></a> for faster upload.
-</p>
+<aside><p>
+  {#if isKAIST}
+    Are you in KAIST campus now?
+    You can use <a href="https://kaist.upload.minchan.me"><b>https://kaist.upload.minchan.me</b></a> for faster upload.
+  {/if}
+</aside>
+
+<style>
+  a {
+    word-break: break-all;
+  }
+</style>
