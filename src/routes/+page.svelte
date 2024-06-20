@@ -1,10 +1,9 @@
 <script lang="ts">
   import { browser } from "$app/environment";
+  import FileUploader from "./FileUploader.svelte";
   import RedirectForKAIST from "./RedirectForKAIST.svelte";
-  import UploadStatus from "./UploadStatus.svelte";
 
   let isDisposable = false;
-  let uploadStatus: UploadStatus;
 </script>
 
 <svlete:head>
@@ -36,9 +35,8 @@
         Allow only one download (check or uncheck it <strong>before</strong> selecting a file)
       </label>
       <br><br>
-      <input type="file" />
+      <FileUploader isDisposable={isDisposable} />
     </form>
-    <UploadStatus bind:this={uploadStatus} />
   </section>
   <section>
     <h2>Notes</h2>

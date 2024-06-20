@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { ONE_KIBI, ONE_MEBI, ONE_GIBI } from "$lib/constants";
+
   let status: "uploading" | "uploaded" | "failed";
 
   let percent: number;
@@ -8,10 +10,6 @@
   let isImage: boolean;
 
   const formatThroughput = (throughput: number) => {
-    const ONE_KIBI = 1024;
-    const ONE_MEBI = 1024 * ONE_KIBI;
-    const ONE_GIBI = 1024 * ONE_MEBI;
-
     if (throughput < ONE_KIBI) {
       return `${throughput} B/s`;
     } else if (throughput < ONE_MEBI) {
