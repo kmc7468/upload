@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { writable } from "svelte/store";
   import { browser } from "$app/environment";
   import FileUploader from "./FileUploader.svelte";
   import RedirectForKAIST from "./RedirectForKAIST.svelte";
 
   let isDisposable = false;
+  const isUploading = writable(false);
 </script>
 
 <svlete:head>
@@ -31,11 +33,11 @@
     </p>
     <form>
       <label>
-        <input type="checkbox" bind:checked={isDisposable} />
+        <input type="checkbox" bind:checked={isDisposable} disabled={$isUploading} />
         Allow only one download (check or uncheck it <strong>before</strong> selecting a file)
       </label>
       <br><br>
-      <FileUploader isDisposable={isDisposable} />
+      <FileUploader isDisposable={isDisposable} isUploading={isUploading} />
     </form>
   </section>
   <section>

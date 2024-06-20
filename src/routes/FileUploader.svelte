@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { type Writable } from "svelte/store";
   import { ONE_GIBI } from "$lib/constants";
   import UploadStatus from "./UploadStatus.svelte";
 
   export let isDisposable: boolean;
+  export let isUploading: Writable<boolean>;
 
   let file: HTMLInputElement;
   let uploadStatus: UploadStatus;
@@ -34,6 +36,10 @@
     const xhr = new XMLHttpRequest();
     const fileType = determineFileType(targetFile);
 
+    xhr.addEventListener("loadstart", () => {
+      file.disabled = true;
+      $isUploading = true;
+    });
     xhr.addEventListener("load", async () => {
       if (xhr.status === 200) {
         const downloadURL = xhr.responseText.substring(0, xhr.responseText.length - 1); // 개행 제거
@@ -49,6 +55,10 @@
     xhr.addEventListener("error", async () => {
       uploadStatus.displayFailure();
       alert("An error occurred while uploading the file.");
+    });
+    xhr.addEventListener("loadend", () => {
+      file.disabled = false;
+      $isUploading = false;
     });
 
     let time: number;
