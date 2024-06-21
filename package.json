@@ -10,11 +10,15 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "eslint ."
   },
+  "dependencies": {
+    "node-schedule": "^2.1.1"
+  },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.0",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@types/eslint": "^8.56.7",
+    "@types/node-schedule": "^2.1.7",
     "eslint": "^9.0.0",
     "eslint-plugin-svelte": "^2.36.0",
     "globals": "^15.0.0",
