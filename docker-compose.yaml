@@ -13,7 +13,7 @@ services:
       - ID_LENGTH
       - PUBLIC_MAX_FILE_SIZE=${MAX_FILE_SIZE:-}
       - PUBLIC_MAX_CONVERTIBLE_IMAGE_SIZE=${MAX_CONVERTIBLE_IMAGE_SIZE:-}
-      - XFF_DEPTH=${TRUST_PROXY:-}
+      - XFF_DEPTH=${TRUST_PROXY:-0}
     ports:
       - ${PORT:-80}:3000
 
