@@ -2,8 +2,38 @@
 import { error, text } from "@sveltejs/kit";
 import crypto from "crypto";
 import { MAX_FILE_SIZE } from "$lib/constants";
-import { saveFile } from "$lib/server/filesystem";
+import { saveFile, readFile } from "$lib/server/filesystem";
+import { ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
 import type { RequestHandler } from "./$types";
+
+const idRegex = new RegExp(`^[${ID_CHARS}]{${ID_LENGTH}}$`);
+
+export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
+  const fileID = params.a;
+  const fileName = params.b;
+  if (!idRegex.test(fileID)) {
+    error(404);
+  }
+
+  const targetFormat = (() => {
+    if (url.searchParams.has("jpeg") || url.searchParams.has("jpg")) {
+      return ".jpeg";
+    } else if (url.searchParams.has("png")) {
+      return ".png";
+    } else {
+      return undefined;
+    }
+  })();
+  const file = readFile(fileID, targetFormat);
+
+  // TODO: Logging
+
+  return new Response(file.buffer, {
+    headers: {
+      "Content-Disposition": (fileName ? `attachment; filename="${fileName}"` : "inline")
+    }
+  });
+};
 
 const isValidFileAttr = (fileAttr: string) => {
   return fileAttr.split("").every(
@@ -15,12 +45,7 @@ const hash = (buffer: Buffer) => {
   return crypto.createHash("sha256").update(buffer).digest("hex");
 };
 
-export const PUT: RequestHandler = async ({ request, params, getClientAddress }) => {
-  const host = request.headers.get("Host");
-  if (!host) {
-    error(400);
-  }
-
+export const PUT: RequestHandler = async ({ request, params, url, getClientAddress }) => {
   const contentLength = (() => {
     const contentLength = request.headers.get("Content-Length");
     if (!contentLength) {
@@ -49,9 +74,13 @@ export const PUT: RequestHandler = async ({ request, params, getClientAddress })
   const clientIP = getClientAddress();
 
   const isDisposable = fileAttr?.includes("d") ?? false;
-  const { fileID, targetFileName } = await saveFile(file, isDisposable);
+  const { fileID, targetFileName } = saveFile(file, isDisposable);
 
   // TODO: Logging
 
-  return text(`https://${host}/${fileID}/${encodeURI(fileName)}\n`);
+  return text(`${url.origin}/${fileID}/${encodeURI(fileName)}\n`, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8"
+    }
+  });
 };
