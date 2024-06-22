@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Writable } from "svelte/store";
-  import { ONE_GIBI } from "$lib/constants";
+  import { MAX_FILE_SIZE } from "$lib/constants";
   import UploadStatus from "./UploadStatus.svelte";
 
   export let isDisposable: boolean;
@@ -28,7 +28,7 @@
     const targetFile = file.files?.[0];
     if (!targetFile) {
       return;
-    } else if (targetFile.size > ONE_GIBI) {
+    } else if (targetFile.size > MAX_FILE_SIZE) {
       alert("The file is too large.");
       return;
     }

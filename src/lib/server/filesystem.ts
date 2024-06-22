@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { ID_CHARS, ID_LENGTH } from "$lib/loadenv";
-import { UPLOAD_DIR } from "$lib/server/loadenv";
+import { UPLOAD_DIR, ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
 
 const fileExtensions = ["", ".d"];
 
