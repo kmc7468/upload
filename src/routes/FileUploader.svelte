@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Writable } from "svelte/store";
-  import { MAX_FILE_SIZE } from "$lib/constants";
+  import { MAX_FILE_SIZE, MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
   import UploadStatus from "./UploadStatus.svelte";
 
   export let isDisposable: boolean;
@@ -43,7 +43,7 @@
     xhr.addEventListener("load", async () => {
       if (xhr.status === 200) {
         const downloadURL = xhr.responseText.substring(0, xhr.responseText.length - 1); // 개행 제거
-        const isImage = fileType.startsWith("image/");
+        const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
 
         uploadStatus.updateDownloadURL(downloadURL, isImage);
         alert("The file has been uploaded successfully.");

@@ -2,7 +2,7 @@
 import { error, text } from "@sveltejs/kit";
 import crypto from "crypto";
 import { MAX_FILE_SIZE } from "$lib/constants";
-import { saveFile, readFile } from "$lib/server/filesystem";
+import { readFile, saveFile } from "$lib/server/filesystem";
 import { ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
 import type { RequestHandler } from "./$types";
 
@@ -61,7 +61,7 @@ export const PUT: RequestHandler = async ({ request, params, url, getClientAddre
 
   const fileAttr = params.b ? params.a : undefined;
   if (fileAttr && !isValidFileAttr(fileAttr)) {
-    error(400);
+    error(404);
   }
 
   const file = Buffer.from(await request.arrayBuffer());
@@ -80,7 +80,7 @@ export const PUT: RequestHandler = async ({ request, params, url, getClientAddre
 
   return text(`${url.origin}/${fileID}/${encodeURI(fileName)}\n`, {
     headers: {
-      "Content-Type": "text/plain; charset=utf-8"
+      "Content-Type": "text/plain"
     }
   });
 };
