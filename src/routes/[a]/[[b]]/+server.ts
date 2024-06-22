@@ -24,7 +24,7 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
       return undefined;
     }
   })();
-  const file = readFile(fileID, targetFormat);
+  const file = await readFile(fileID, targetFormat);
 
   // TODO: Logging
 

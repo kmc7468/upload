@@ -11,7 +11,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "node-schedule": "^2.1.1"
+    "node-schedule": "^2.1.1",
+    "sharp": "^0.33.4"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.0",

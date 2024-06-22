@@ -1,6 +1,7 @@
 import { error } from "@sveltejs/kit";
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
 import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
 import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
 
@@ -18,18 +19,28 @@ const readAndUnlinkFile = (path: string, unlink: boolean) => {
 }
 
 const convertImageFormat = (file: Buffer, targetFormat: ImageFormat) => {
-  // TODO
-  return file;
+  const image = sharp(file, {
+    limitInputPixels: false,
+  }).keepMetadata();
+
+  if (targetFormat === ".jpeg") {
+    return image.jpeg({
+      quality: 100,
+      chromaSubsampling: "4:4:4",
+    }).toBuffer();
+  } else if (targetFormat === ".png") {
+    return image.png().toBuffer();
+  }
 };
 
-const convertFileFormat = (fileID: string, targetPath: string, isDisposable: boolean, targetFormat: Format) => {
+const convertFileFormat = async (fileID: string, targetPath: string, isDisposable: boolean, targetFormat: Format) => {
   const cachePath = path.join(CACHE_DIR, fileID + targetFormat);
   if (fs.existsSync(cachePath)) {
     return fs.readFileSync(cachePath);
   }
 
   const file = readAndUnlinkFile(targetPath, isDisposable);
-  const convertedFile = (() => {
+  const convertedFile = await (() => {
     if (targetFormat === ".jpeg" || targetFormat === ".png") {
       if (file.byteLength > MAX_CONVERTIBLE_IMAGE_SIZE) {
         error(413);
@@ -44,7 +55,7 @@ const convertFileFormat = (fileID: string, targetPath: string, isDisposable: boo
   return convertedFile;
 };
 
-export const readFile = (fileID: string, targetFormat?: Format) => {
+export const readFile = async (fileID: string, targetFormat?: Format) => {
   const candidates = fileExtensions.map(ext => path.join(UPLOAD_DIR, fileID + ext));
   const targetPath = candidates.find(fs.existsSync);
   if (targetPath === undefined) {
@@ -57,7 +68,7 @@ export const readFile = (fileID: string, targetFormat?: Format) => {
   if (targetFormat === undefined) {
     return readAndUnlinkFile(targetPath, isDisposable);
   } else {
-    return convertFileFormat(fileID, targetPath, isDisposable, targetFormat);
+    return await convertFileFormat(fileID, targetPath, isDisposable, targetFormat);
   }
 };
 
