@@ -6,13 +6,13 @@
 - HEIF 등 다양한 포맷의 이미지를 JPEG 또는 PNG 포맷으로 변환할 수도 있습니다.
 - 업로드된 파일을 램 디스크에 저장하여, 드라이브 수명 단축을 최소화합니다.
 
-## How to run
+## Deployment
 Docker Compose의 사용을 권장합니다.
 ```bash
-$ git clone https://github.com/kmc7468/upload
-$ cd upload
-$ vim .env # Optional: 환경 변수를 설정할 경우에만 실행하세요.
-$ docker compose up --build -d
+git clone https://github.com/kmc7468/upload
+cd upload
+vim .env # Optional: 환경 변수를 설정할 경우에만 실행하세요.
+docker compose up --build -d
 ```
 
 로그 파일은 Docker 컨테이너 내부의 `/usr/src/app/logs` 디렉터리에 저장되며, 컨테이너를 재시작해도 로그 파일은 계속 보존됩니다.
