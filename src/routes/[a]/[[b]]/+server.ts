@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { MAX_FILE_SIZE } from "$lib/constants";
 import { readFile, saveFile } from "$lib/server/filesystem";
 import { ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
+import logger from "$lib/server/logger";
 import type { RequestHandler } from "./$types";
 
 const idRegex = new RegExp(`^[${ID_CHARS}]{${ID_LENGTH}}$`);
@@ -24,9 +25,9 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
       return undefined;
     }
   })();
-  const file = await readFile(fileID, targetFormat);
+  const { file, extension } = await readFile(fileID, targetFormat);
 
-  // TODO: Logging
+  logger.info(`File "${fileID + extension}" downloaded by "${getClientAddress()}"`);
 
   return new Response(file.buffer, {
     headers: {
@@ -64,6 +65,8 @@ export const PUT: RequestHandler = async ({ request, params, url, getClientAddre
     error(404);
   }
 
+  const isDisposable = fileAttr?.includes("d") ?? false;
+
   const file = Buffer.from(await request.arrayBuffer());
   if (file.byteLength !== contentLength) {
     error(400);
@@ -71,12 +74,10 @@ export const PUT: RequestHandler = async ({ request, params, url, getClientAddre
 
   const fileName = params.b ? params.b : params.a;
   const fileHash = hash(file);
-  const clientIP = getClientAddress();
-
-  const isDisposable = fileAttr?.includes("d") ?? false;
   const { fileID, targetFileName } = saveFile(file, isDisposable);
 
-  // TODO: Logging
+  logger.info(
+    `File "${fileName}" uploaded as "${targetFileName}" with hash "${fileHash}" by "${getClientAddress()}" (${contentLength} bytes)`);
 
   return text(`${url.origin}/${fileID}/${encodeURI(fileName)}\n`, {
     headers: {

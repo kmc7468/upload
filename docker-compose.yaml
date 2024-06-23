@@ -14,7 +14,8 @@ services:
       - FILE_EXPIRY
       - PUBLIC_MAX_FILE_SIZE=${MAX_FILE_SIZE:-}
       - PUBLIC_MAX_CONVERTIBLE_IMAGE_SIZE=${MAX_CONVERTIBLE_IMAGE_SIZE:-}
-      - XFF_DEPTH=${TRUST_PROXY:-0}
+      - ADDRESS_HEADER=${TRUST_PROXY:+X-Forwarded-For}
+      - XFF_DEPTH=${TRUST_PROXY:-}
     ports:
       - ${PORT:-80}:3000
 

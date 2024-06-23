@@ -12,7 +12,6 @@ RUN ["pnpm", "install", "--frozen-lockfile"]
 COPY . .
 RUN ["pnpm", "build"]
 
-ENV ADDRESS_HEADER X-Forwarded-For
 ENV BODY_SIZE_LIMIT Infinity
 EXPOSE 3000
 ENTRYPOINT ["node", "build"]

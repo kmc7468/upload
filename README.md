@@ -28,7 +28,7 @@ docker compose up --build -d
 |TMPFS_SIZE|2G|업로드된 파일이 저장되는 램 디스크의 최대 크기입니다.|
 |MAX_FILE_SIZE|1073741824|업로드할 수 있는 파일의 최대 크기입니다. 기본 값은 1 GiB 입니다.|
 |MAX_CONVERTIBLE_IMAGE_SIZE|31457280|포맷을 변환할 수 있는 이미지 파일의 최대 크기입니다. 기본 값은 30 MiB 입니다.|
-|TRUST_PROXY|0|신뢰할 수 있는 프록시 서버의 수입니다.|
+|TRUST_PROXY||신뢰할 수 있는 프록시 서버의 수입니다. 설정할 경우, 반드시 1 이상의 값을 사용해 주세요.|
 
 ## Special Thanks
 - [DoyunShin/UPServer](https://github.com/DoyunShin/UPServer)로부터 많은 영향을 받았습니다. 감사합니다.

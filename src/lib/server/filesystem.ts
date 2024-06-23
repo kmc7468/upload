@@ -64,12 +64,12 @@ export const readFile = async (fileID: string, targetFormat?: Format) => {
 
   const extension = path.extname(targetPath);
   const isDisposable = extension.includes("d");
-
-  if (targetFormat === undefined) {
-    return readAndUnlinkFile(targetPath, isDisposable);
-  } else {
-    return await convertFileFormat(fileID, targetPath, isDisposable, targetFormat);
-  }
+  return {
+    file: targetFormat === undefined ?
+      readAndUnlinkFile(targetPath, isDisposable) :
+      await convertFileFormat(fileID, targetPath, isDisposable, targetFormat),
+    extension,
+  };
 };
 
 const generateRandomID = (length: number) => {
