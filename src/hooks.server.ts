@@ -1,5 +1,6 @@
 import fs from "fs";
 import schedule from "node-schedule";
+import { unlinkExpiredFiles } from "$lib/server/filesystem";
 import { UPLOAD_DIR, CACHE_DIR } from "$lib/server/loadenv";
 
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -14,6 +15,4 @@ if (!fs.existsSync(CACHE_DIR)) {
   // TODO: Error
 }
 
-schedule.scheduleJob("* * * * *", () => {
-  // TODO
-});
+schedule.scheduleJob("* * * * *", unlinkExpiredFiles);

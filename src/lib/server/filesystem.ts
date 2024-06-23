@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
-import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
+import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "$lib/server/loadenv";
 
 const fileExtensions = ["", ".d"];
 
@@ -93,4 +93,22 @@ export const saveFile = (file: Buffer, isDisposable: boolean) => {
   fs.writeFileSync(path.join(UPLOAD_DIR, targetFileName), file, { mode: 0o600 });
 
   return { fileID, targetFileName };
+};
+
+const unlinkIfExist = (path: string) => {
+  if (fs.existsSync(path)) {
+    fs.unlinkSync(path);
+  }
+};
+
+export const unlinkExpiredFiles = () => {
+  fs.readdirSync(UPLOAD_DIR).forEach(file => {
+    const filePath = path.join(UPLOAD_DIR, file);
+    const fileStat = fs.statSync(filePath);
+    if (fileStat.isFile() && Date.now() - fileStat.mtimeMs > FILE_EXPIRY) {
+      fs.unlinkSync(filePath);
+      unlinkIfExist(path.join(CACHE_DIR, file + ".jpeg"));
+      unlinkIfExist(path.join(CACHE_DIR, file + ".png"));
+    }
+  });
 };

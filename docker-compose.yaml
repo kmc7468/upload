@@ -11,6 +11,7 @@ services:
     environment:
       - ID_CHARS
       - ID_LENGTH
+      - FILE_EXPIRY
       - PUBLIC_MAX_FILE_SIZE=${MAX_FILE_SIZE:-}
       - PUBLIC_MAX_CONVERTIBLE_IMAGE_SIZE=${MAX_CONVERTIBLE_IMAGE_SIZE:-}
       - XFF_DEPTH=${TRUST_PROXY:-0}
