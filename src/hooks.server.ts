@@ -13,7 +13,7 @@ logger.debug(`LOG_DIR=${path.resolve(loadenv.LOG_DIR)}`);
 logger.debug(`ID_CHARS=${loadenv.ID_CHARS}`);
 logger.debug(`ID_LENGTH=${loadenv.ID_LENGTH}`);
 
-logger.debug(`FILE_EXPIRY=${loadenv.FILE_EXPIRY}`);
+logger.debug(`FILE_EXPIRY=${loadenv.FILE_EXPIRY / 1000}`);
 logger.debug(`MAX_FILE_SIZE=${constants.MAX_FILE_SIZE}`);
 logger.debug(`MAX_CONVERTIBLE_IMAGE_SIZE=${constants.MAX_CONVERTIBLE_IMAGE_SIZE}`);
 

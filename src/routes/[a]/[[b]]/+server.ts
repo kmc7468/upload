@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
 
   return new Response(file.buffer, {
     headers: {
-      "Content-Disposition": (fileName ? `attachment; filename="${fileName}"` : "inline")
+      "Content-Disposition": (fileName ? `attachment; filename="${encodeURI(fileName)}"` : "inline")
     }
   });
 };
