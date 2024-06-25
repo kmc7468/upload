@@ -5,10 +5,12 @@ import sharp from "sharp";
 import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
 import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "$lib/server/loadenv";
 
-const fileExtensions = ["", ".d"];
-
 type ImageFormat = ".jpeg" | ".png";
 type Format = ImageFormat;
+
+const fileExtensions = ["", ".d"];
+const imageFormats: ImageFormat[] = [".jpeg", ".png"];
+const formats = ([] as Format[]).concat(imageFormats);
 
 const readAndUnlinkFile = (path: string, unlink: boolean) => {
   const file = fs.readFileSync(path);
@@ -41,7 +43,7 @@ const convertFileFormat = async (fileID: string, targetPath: string, isDisposabl
 
   const file = readAndUnlinkFile(targetPath, isDisposable);
   const convertedFile = await (() => {
-    if (targetFormat === ".jpeg" || targetFormat === ".png") {
+    if (imageFormats.includes(targetFormat)) {
       if (file.byteLength > MAX_CONVERTIBLE_IMAGE_SIZE) {
         error(413);
       }
@@ -64,6 +66,7 @@ export const readFile = async (fileID: string, targetFormat?: Format) => {
 
   const extension = path.extname(targetPath);
   const isDisposable = extension.includes("d");
+
   return {
     file: targetFormat === undefined ?
       readAndUnlinkFile(targetPath, isDisposable) :
@@ -107,8 +110,7 @@ export const unlinkExpiredFiles = () => {
     const fileStat = fs.statSync(filePath);
     if (fileStat.isFile() && Date.now() - fileStat.mtimeMs > FILE_EXPIRY) {
       fs.unlinkSync(filePath);
-      unlinkIfExist(path.join(CACHE_DIR, file + ".jpeg"));
-      unlinkIfExist(path.join(CACHE_DIR, file + ".png"));
+      formats.forEach(format => unlinkIfExist(path.join(CACHE_DIR, file + format)));
     }
   });
 };
