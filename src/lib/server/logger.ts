@@ -10,18 +10,19 @@ const baseFormat = format.combine(
   format.errors({ stack: true }),
   format.json(),
 );
-const formatter = format.printf(({ timestamp, level, message }) => {
-  return `${timestamp} ${level}: ${message}`;
+const formatter = format.printf(({ timestamp, level, message, stack }) => {
+  return `${timestamp} ${level}: ${message}` + (stack ? ` ${stack}` : "");
 });
 
 export default createLogger({
   level: "silly",
+  format: baseFormat,
   transports: [
     new transports.Console({
       format: format.combine(
-        baseFormat, 
-        format.colorize({ level: true}),
-        formatter),
+        format.colorize({ level: true }),
+        formatter,
+      ),
     }),
     new transports.File({
       filename: (() => {
@@ -36,7 +37,7 @@ export default createLogger({
         return `${year}${month}${day}-${hour}${minute}${second}.log`;
       })(),
       dirname: LOG_DIR,
-      format: format.combine(baseFormat, formatter),
+      format: formatter,
     }),
   ],
 });
