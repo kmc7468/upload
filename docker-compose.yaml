@@ -9,15 +9,15 @@ services:
     tmpfs:
       - /usr/src/app/uploads:size=${TMPFS_SIZE:-2G}
     environment:
+      - ID_CHARS
       - ID_LENGTH
-      - MAX_FILE_SIZE
-      - MAX_CONVERTIBLE_IMAGE_SIZE
-      - FILE_EXPIRES
-      - TRUST_PROXY
-      - DIRECTORY=/usr/src/app/uploads
-      - LOG_DIRECTORY=/usr/src/app/logs
+      - FILE_EXPIRY
+      - PUBLIC_MAX_FILE_SIZE=${MAX_FILE_SIZE:-}
+      - PUBLIC_MAX_CONVERTIBLE_IMAGE_SIZE=${MAX_CONVERTIBLE_IMAGE_SIZE:-}
+      - ADDRESS_HEADER=${TRUST_PROXY:+X-Forwarded-For}
+      - XFF_DEPTH=${TRUST_PROXY:-}
     ports:
-      - ${PORT:-80}:80
+      - ${PORT:-80}:3000
 
 volumes:
   upload-server-log:
