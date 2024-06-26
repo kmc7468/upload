@@ -74,7 +74,7 @@ export const PUT: RequestHandler = async ({ request, params, url, getClientAddre
 
   const fileName = params.b ? params.b : params.a;
   const fileHash = hash(file);
-  const { fileID, targetFileName } = saveFile(file, isDisposable);
+  const { fileID, targetFileName } = await saveFile(file, isDisposable);
 
   logger.info(
     `File "${fileName}" uploaded as "${targetFileName}" with hash "${fileHash}" by "${getClientAddress()}" (${contentLength} bytes)`);

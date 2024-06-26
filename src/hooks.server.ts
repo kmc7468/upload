@@ -7,10 +7,6 @@ import { unlinkExpiredFiles } from "$lib/server/filesystem";
 import * as loadenv from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
 
-export const handleError: HandleServerError = ({ error }) => {
-  logger.error(error);
-};
-
 logger.verbose(`UPLOAD_DIR=${path.resolve(loadenv.UPLOAD_DIR)}`);
 logger.verbose(`CACHE_DIR=${path.resolve(loadenv.CACHE_DIR)}`);
 logger.verbose(`LOG_DIR=${path.resolve(loadenv.LOG_DIR)}`);
@@ -35,3 +31,7 @@ mkdirIfNotExist(loadenv.CACHE_DIR);
 mkdirIfNotExist(loadenv.LOG_DIR);
 
 schedule.scheduleJob("* * * * *", unlinkExpiredFiles);
+
+export const handleError: HandleServerError = ({ error }) => {
+  logger.error(error);
+};
