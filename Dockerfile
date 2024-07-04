@@ -10,6 +10,7 @@ COPY .npmrc package.json pnpm-lock.yaml .
 RUN ["pnpm", "install", "--frozen-lockfile"]
 
 COPY . .
+RUN ["sh", "patch/apply.sh"]
 RUN ["pnpm", "build"]
 
 ENV BODY_SIZE_LIMIT Infinity

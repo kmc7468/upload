@@ -1,0 +1,2 @@
+cp patch/@sveltejs/adapter-node/files/handler.js node_modules/@sveltejs/adapter-node/files/handler.js
+cp patch/@sveltejs/kit/src/exports/node/index.js node_modules/@sveltejs/kit/src/exports/node/index.js
