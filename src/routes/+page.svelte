@@ -1,8 +1,6 @@
 <script lang="ts">
   import { writable } from "svelte/store";
-  import { browser } from "$app/environment";
   import FileUploader from "./FileUploader.svelte";
-  import RedirectForKAIST from "./RedirectForKAIST.svelte";
 
   let isDisposable = false;
   const isUploading = writable(false);
@@ -18,9 +16,6 @@
     GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
     Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
   </aside>
-  {#if browser && window.location.hostname === "upload.minchan.me"}
-    <RedirectForKAIST />
-  {/if}
 </header>
 
 <main>

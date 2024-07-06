@@ -25,6 +25,6 @@ export default [
     }
   },
   {
-    ignores: ["build/", ".svelte-kit/", "dist/"]
+    ignores: [".svelte-kit/", "build/", "dist/", "patch/"]
   }
 ];
