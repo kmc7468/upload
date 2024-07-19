@@ -2,13 +2,13 @@ import type { Selectable, Insertable, Updateable } from "kysely";
 
 export interface FileTable {
   id: string,
-  uploadedAt: Date,
-  expireAt: Date,
+  uploadedAt: number, // timestamp
+  expireAt: number, // timestamp
 
   fileName: string,
   contentType: string | null,
 
-  isDisposable: boolean,
+  isDisposable: number, // boolean
 }
 
 export type File = Selectable<FileTable>;

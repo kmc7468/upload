@@ -50,18 +50,18 @@ const filterContentType = (contentType: string | null) => {
 
 export const uploadFile = async (file: Buffer, attributes: FileAttributes) => {
   const fileID = generateUniqueID();
-  const now = new Date();
+  const now = Date.now();
 
   await writeFileAsync(path.join(UPLOAD_DIR, fileID), file, { mode: 0o600 });
   await createFile({
     id: fileID,
     uploadedAt: now,
-    expireAt: new Date(now.getTime() + FILE_EXPIRY),
+    expireAt: now + FILE_EXPIRY,
 
     fileName: attributes.name,
     contentType: filterContentType(attributes.type),
 
-    isDisposable: attributes.isDisposable,
+    isDisposable: attributes.isDisposable ? 1 : 0,
   });
 
   return fileID;
@@ -132,9 +132,9 @@ export const downloadFile = async (fileID: string, targetFormat?: Format) => {
   }
 
   if (targetFormat === undefined) {
-    return await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), file.isDisposable);
+    return await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), !!file.isDisposable);
   } else {
-    return await readAndConvertFile(fileID, file.isDisposable, targetFormat);
+    return await readAndConvertFile(fileID, !!file.isDisposable, targetFormat);
   }
 };
 

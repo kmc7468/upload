@@ -21,7 +21,7 @@ export const findExpiredFiles = async () => {
   return await db!
     .selectFrom("file")
     .select("id")
-    .where("expireAt", "<=", new Date())
+    .where("expireAt", "<=", Date.now())
     .execute();
 }
 
