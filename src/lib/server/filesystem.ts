@@ -1,8 +1,8 @@
 import { error } from "@sveltejs/kit";
-import fs from "fs";
+import { existsSync } from "fs";
+import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
-import { promisify } from "util";
 import { MAX_CONVERTIBLE_IMAGE_SIZE } from "../constants";
 import { createFile, findFile, findExpiredFiles, getAllFileIDs, deleteFile } from "./db/file";
 import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "./loadenv";
@@ -12,11 +12,6 @@ type Format = ImageFormat;
 
 const imageFormats: ImageFormat[] = [".jpeg", ".png"];
 const formats = ([] as Format[]).concat(imageFormats);
-
-const readFileAsync = promisify(fs.readFile);
-const writeFileAsync = promisify(fs.writeFile);
-const existsAsync = promisify(fs.exists);
-const unlinkAsync = promisify(fs.unlink);
 
 interface FileAttributes {
   name: string,
@@ -32,7 +27,7 @@ const generateRandomID = (length: number) => {
 const generateUniqueID = () => {
   while (true) {
     const id = generateRandomID(ID_LENGTH);
-    if (!fs.existsSync(path.join(UPLOAD_DIR, id))) { // ID의 고유성을 최대한 보장하기 위해 Synchronous API를 사용
+    if (!existsSync(path.join(UPLOAD_DIR, id))) { // ID의 고유성을 최대한 보장하기 위해 Synchronous API를 사용
       return id;
     }
   }
@@ -54,7 +49,7 @@ export const uploadFile = async (file: Buffer, attributes: FileAttributes) => {
   const fileID = generateUniqueID();
   const now = Date.now();
 
-  await writeFileAsync(path.join(UPLOAD_DIR, fileID), file, { mode: 0o600 });
+  await fs.writeFile(path.join(UPLOAD_DIR, fileID), file, { mode: 0o600 });
   await createFile({
     id: fileID,
     uploadedAt: now,
@@ -71,7 +66,7 @@ export const uploadFile = async (file: Buffer, attributes: FileAttributes) => {
 
 const readFileIfExist = async (path: string) => {
   try {
-    return await readFileAsync(path);
+    return await fs.readFile(path);
   } catch (error: any) {
     if (error?.code === "ENOENT") {
       return null;
@@ -82,9 +77,9 @@ const readFileIfExist = async (path: string) => {
 }
 
 const readAndUnlinkFile = async (path: string, unlink: boolean) => {
-  const file = await readFileAsync(path);
+  const file = await fs.readFile(path);
   if (unlink) {
-    await unlinkAsync(path);
+    await fs.unlink(path);
   }
   return file;
 }
@@ -122,7 +117,7 @@ const readAndConvertFile = async (fileID: string, isDisposable: boolean, targetF
   })() as Buffer;
 
   if (!isDisposable) {
-    await writeFileAsync(cachePath, convertedFile, { mode: 0o600 });
+    await fs.writeFile(cachePath, convertedFile, { mode: 0o600 });
   }
   return convertedFile;
 };
@@ -146,8 +141,12 @@ export const downloadFile = async (fileID: string, targetFormat?: Format) => {
 };
 
 const unlinkIfExist = async (path: string) => {
-  if (await existsAsync(path)) {
-    await unlinkAsync(path);
+  try {
+    await fs.unlink(path);
+  } catch (error: any) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
   }
 };
 
@@ -156,7 +155,7 @@ export const unlinkExpiredFiles = async () => {
   await Promise.all(expiredFiles.map(async file => {
     await deleteFile(file.id);
     await Promise.all(formats.map(format => unlinkIfExist(path.join(CACHE_DIR, file.id + format))));
-    await unlinkAsync(path.join(UPLOAD_DIR, file.id));
+    await fs.unlink(path.join(UPLOAD_DIR, file.id));
   }));
 };
 
@@ -165,9 +164,9 @@ const calcDifference = <T>(a: Set<T>, b: Set<T>) => {
 }
 
 export const synchronizeWithDatabase = async () => {
-  const entryInFS = await promisify(fs.readdir)(UPLOAD_DIR);
+  const entryInFS = await fs.readdir(UPLOAD_DIR);
   const filesInFS = await Promise.all(entryInFS.map(async entry => {
-    const stat = await promisify(fs.stat)(path.join(UPLOAD_DIR, entry));
+    const stat = await fs.stat(path.join(UPLOAD_DIR, entry));
     return stat.isFile() ? entry : null;
   }));
 
@@ -175,7 +174,7 @@ export const synchronizeWithDatabase = async () => {
   const fileIdsInDB = new Set(await getAllFileIDs());
 
   await Promise.all(calcDifference(fileIdsInFS, fileIdsInDB).map(async fileID => {
-    await unlinkAsync(path.join(UPLOAD_DIR, fileID));
+    await fs.unlink(path.join(UPLOAD_DIR, fileID));
   }));
   await Promise.all(calcDifference(fileIdsInDB, fileIdsInFS).map(async fileID => {
     await deleteFile(fileID);
