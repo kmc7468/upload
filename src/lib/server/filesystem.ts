@@ -4,7 +4,7 @@ import path from "path";
 import sharp from "sharp";
 import { promisify } from "util";
 import { MAX_CONVERTIBLE_IMAGE_SIZE } from "../constants";
-import { createFile, findFile, findExpiredFiles, deleteFile } from "./db/file";
+import { createFile, findFile, findExpiredFiles, getAllFileIDs, deleteFile } from "./db/file";
 import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "./loadenv";
 
 type ImageFormat = ".jpeg" | ".png";
@@ -39,8 +39,10 @@ const generateUniqueID = () => {
 };
 
 const filterContentType = (contentType: string | null) => {
-  if (!contentType || contentType === "application/octet-stream" ||
-      contentType.startsWith("message/") || contentType.startsWith("multipart/")) {
+  if (!contentType ||
+      contentType === "application/octet-stream" ||
+      contentType.startsWith("message/") ||
+      contentType.startsWith("multipart/")) {
 
     return undefined;
   } else {
@@ -131,10 +133,15 @@ export const downloadFile = async (fileID: string, targetFormat?: Format) => {
     error(404);
   }
 
+  const isDisposable = !!file.isDisposable;
+  if (isDisposable) {
+    await deleteFile(fileID);
+  }
+
   if (targetFormat === undefined) {
-    return await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), !!file.isDisposable);
+    return await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), isDisposable);
   } else {
-    return await readAndConvertFile(fileID, !!file.isDisposable, targetFormat);
+    return await readAndConvertFile(fileID, isDisposable, targetFormat);
   }
 };
 
@@ -150,5 +157,23 @@ export const unlinkExpiredFiles = async () => {
     await deleteFile(file.id);
     await Promise.all(formats.map(format => unlinkIfExist(path.join(CACHE_DIR, file.id + format))));
     await unlinkAsync(path.join(UPLOAD_DIR, file.id));
+  }));
+};
+
+export const synchronizeWithDatabase = async () => {
+  const entryInFS = await promisify(fs.readdir)(UPLOAD_DIR);
+  const filesInFS = await Promise.all(entryInFS.map(async entry => {
+    const stat = await promisify(fs.stat)(path.join(UPLOAD_DIR, entry));
+    return stat.isFile() ? entry : null;
+  }));
+
+  const fileIdsInFS = new Set(filesInFS.filter(file => file !== null));
+  const fileIdsInDB = new Set(await getAllFileIDs());
+
+  await Promise.all([...fileIdsInFS.difference(fileIdsInDB)].map(async fileID => {
+    await unlinkAsync(path.join(UPLOAD_DIR, fileID));
+  }));
+  await Promise.all([...fileIdsInDB.difference(fileIdsInFS)].map(async fileID => {
+    await deleteFile(fileID);
   }));
 };

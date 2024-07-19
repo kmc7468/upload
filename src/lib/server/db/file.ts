@@ -25,6 +25,14 @@ export const findExpiredFiles = async () => {
     .execute();
 }
 
+export const getAllFileIDs = async () => {
+  const result = await db!
+    .selectFrom("file")
+    .select("id")
+    .execute();
+  return result.map(row => row.id);
+}
+
 export const deleteFile = async (id: string) => {
   return await db!
     .deleteFrom("file")

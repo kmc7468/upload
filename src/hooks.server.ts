@@ -4,7 +4,7 @@ import path from "path";
 import schedule from "node-schedule";
 import * as constants from "$lib/constants";
 import { initializeDatabase } from "$lib/server/db/kysely";
-import { unlinkExpiredFiles } from "$lib/server/filesystem";
+import { unlinkExpiredFiles, synchronizeWithDatabase } from "$lib/server/filesystem";
 import * as loadenv from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
 
@@ -38,9 +38,12 @@ const initializeServer = async () => {
 
   // 데이터베이스 초기화
   await initializeDatabase();
+  await synchronizeWithDatabase();
 
   // Cron Job 등록
   schedule.scheduleJob("* * * * *", unlinkExpiredFiles);
+
+  logger.info("Initialization completed!");
 }
 
 export const handleError: HandleServerError = ({ error }) => {
