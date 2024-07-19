@@ -7,6 +7,7 @@ import { unlinkExpiredFiles } from "$lib/server/filesystem";
 import * as loadenv from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
 
+logger.verbose(`DATA_DIR=${path.resolve(loadenv.DATA_DIR)}`);
 logger.verbose(`UPLOAD_DIR=${path.resolve(loadenv.UPLOAD_DIR)}`);
 logger.verbose(`CACHE_DIR=${path.resolve(loadenv.CACHE_DIR)}`);
 logger.verbose(`LOG_DIR=${path.resolve(loadenv.LOG_DIR)}`);
@@ -26,6 +27,7 @@ const mkdirIfNotExist = (dirPath: string) => {
   }
 };
 
+mkdirIfNotExist(loadenv.DATA_DIR);
 mkdirIfNotExist(loadenv.UPLOAD_DIR);
 mkdirIfNotExist(loadenv.CACHE_DIR);
 mkdirIfNotExist(loadenv.LOG_DIR);

@@ -5,7 +5,7 @@ import sharp from "sharp";
 import { promisify } from "util";
 import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
 import { findAsync, someAsync } from "$lib/utils";
-import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "$lib/server/loadenv";
+import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "./loadenv";
 
 type ImageFormat = ".jpeg" | ".png";
 type Format = ImageFormat;
