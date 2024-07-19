@@ -36,21 +36,24 @@
   }
 </script>
 
-<p>
-  {#if status === "uploading"}
-    Uploading the file... ({percent}%, {throughput})
-  {:else if status === "uploaded"}
-    Download URL:
+{#if status === "uploading"}
+  <p>Uploading the file... ({percent}%, {throughput})</p>
+{:else if status === "uploaded"}
+  <p>
+    Download:
     <a id="download" href={downloadURL}><b>{decodeURI(downloadURL)}</b></a>
     {#if isImage}
       (convert to <a href={`${downloadURL}?jpg`}>JPEG</a> or <a href={`${downloadURL}?png`}>PNG</a>)
     {/if}
-  {:else if status === "failed"}
-    Failed to upload the file!
-  {/if}
-</p>
+  </p>
+{:else if status === "failed"}
+  <p>Failed to upload the file!</p>
+{/if}
 
 <style>
+  p {
+    margin-bottom: 0;
+  }
   #download {
     word-break: break-all;
   }

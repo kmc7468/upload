@@ -4,8 +4,10 @@
   import UploadStatus from "./UploadStatus.svelte";
 
   export let isDisposable: boolean;
+  export let isEncryption: boolean;
   export let isUploading: Writable<boolean>;
 
+  let passphrase = "";
   let file: HTMLInputElement;
   let uploadStatus: UploadStatus;
 
@@ -91,5 +93,28 @@
   };
 </script>
 
-<input type="file" bind:this={file} on:change={uploadFile} />
+{#if isEncryption}
+  <label id="passphrase">
+    Passphrase:&nbsp;
+    <input type="password" bind:value={passphrase} />
+  </label>
+{/if}
+<label>
+  Upload:&nbsp;
+  <input type="file" bind:this={file} on:change={uploadFile} />
+</label>
+
 <UploadStatus bind:this={uploadStatus} />
+
+<style>
+  label {
+    align-items: center;
+    display: flex;
+  }
+  #passphrase {
+    margin-bottom: 5px;
+  }
+  input {
+    flex-grow: 1;
+  }
+</style>

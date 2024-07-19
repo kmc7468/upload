@@ -3,6 +3,7 @@
   import FileUploader from "./FileUploader.svelte";
 
   let isDisposable = false;
+  let isEncryption = false;
   const isUploading = writable(false);
 </script>
 
@@ -27,12 +28,23 @@
       <code hidden={!isDisposable}>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code>
     </p>
     <form>
-      <label>
-        <input type="checkbox" bind:checked={isDisposable} disabled={$isUploading} />
-        Allow only one download (check or uncheck it <strong>before</strong> selecting a file)
-      </label>
-      <br><br>
-      <FileUploader isDisposable={isDisposable} isUploading={isUploading} />
+      <section id="options">
+        <p>Change below options <strong>before</strong> selecting a file, if you want to.</p>
+        <label>
+          <input type="checkbox" bind:checked={isDisposable} disabled={$isUploading} />
+          Allow only one download
+        </label><br>
+        <label>
+          <input type="checkbox" bind:checked={isEncryption} disabled={$isUploading} />
+          Encrypt the file before uploading (E2EE)
+        </label>
+      </section>
+      <section>
+        <FileUploader
+          isDisposable={isDisposable}
+          isEncryption={isEncryption}
+          isUploading={isUploading} />
+      </section>
     </form>
   </section>
   <section>
@@ -62,5 +74,21 @@
     background-color: #EEEEEE;
     border-radius: 3px;
     padding: 1px 3px;
+  }
+  form {
+    width: fit-content;
+    row-gap: 16px;
+  }
+  form section {
+    background-color: #EEEEEE;
+    border-radius: 10px;
+    box-sizing: border-box;
+    padding: 5px 10px;
+  }
+  #options {
+    margin-bottom: 16px;
+  }
+  #options p {
+    margin-top: 0;
   }
 </style>
