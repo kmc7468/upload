@@ -1,5 +1,6 @@
 <script lang="ts">
   import { type Writable } from "svelte/store";
+  import { generateSalt, deriveBitsUsingPBKDF2, decryptUsingAES256CBC, encryptUsingAES256CBC } from "$lib/cipher";
   import { MAX_FILE_SIZE, MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
   import UploadStatus from "./UploadStatus.svelte";
 
@@ -26,17 +27,36 @@
     }
   };
 
-  const uploadFile = () => {
+  const encryptFile = async (file: File) => {
+    const saltPrefix = new TextEncoder().encode("Salted__");
+    const salt = generateSalt(8); // For compatibility with OpenSSL
+    const key = await deriveBitsUsingPBKDF2(passphrase, salt, 256 + 128);
+
+    const data = await file.arrayBuffer();
+    const encryptedData = await encryptUsingAES256CBC(data, key.slice(0, 32), key.slice(32, 48));
+
+    const result = new Uint8Array(saltPrefix.length + salt.length + encryptedData.byteLength);
+    result.set(saltPrefix, 0);
+    result.set(salt, saltPrefix.length);
+    result.set(new Uint8Array(encryptedData), saltPrefix.length + salt.length);
+
+    return result;
+  };
+
+  const uploadFile = async () => {
     const targetFile = file.files?.[0];
     if (!targetFile) {
       return;
     } else if (targetFile.size > MAX_FILE_SIZE) {
       alert("The file is too large.");
       return;
+    } else if (isEncryption && passphrase === "") {
+      alert("The passphrase is required.");
+      return;
     }
 
     const xhr = new XMLHttpRequest();
-    const fileType = determineFileType(targetFile);
+    const fileType = isEncryption ? "application/octet-stream" : determineFileType(targetFile);
 
     xhr.addEventListener("loadstart", () => {
       file.disabled = true;
@@ -84,12 +104,23 @@
       uploadStatus.updateUploadProgress(percent, throughput);
     });
     
-    const fileName = encodeURI(targetFile.name);
+    const fileName = encodeURI(targetFile.name + (isEncryption ? ".enc" : ""));
     const uploadURL = `${window.location.origin}/${isDisposable ? "d/" : ""}${fileName}`;
+    let body: File | Uint8Array;
+
+    if (isEncryption) {
+      body = await encryptFile(targetFile);
+      if (body.byteLength > MAX_FILE_SIZE) {
+        alert("The encrypted file is too large.");
+        return;
+      }
+    } else {
+      body = targetFile;
+    }
 
     xhr.open("PUT", uploadURL);
     xhr.setRequestHeader("Content-Type", fileType || "application/octet-stream");
-    xhr.send(targetFile);
+    xhr.send(body);
   };
 </script>
 
