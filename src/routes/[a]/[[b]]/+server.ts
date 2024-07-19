@@ -2,7 +2,7 @@
 import { error, text } from "@sveltejs/kit";
 import crypto from "crypto";
 import { MAX_FILE_SIZE } from "$lib/constants";
-import { readFile, saveFile } from "$lib/server/filesystem";
+import { uploadFile, downloadFile } from "$lib/server/filesystem";
 import { ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
 import type { RequestHandler } from "./$types";
@@ -25,9 +25,9 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
       return undefined;
     }
   })();
-  const { file, extension } = await readFile(fileID, targetFormat);
+  const file = await downloadFile(fileID, targetFormat);
 
-  logger.info(`File "${fileID + extension}" downloaded by "${getClientAddress()}"`);
+  logger.info(`File "${fileID}" downloaded by "${getClientAddress()}"`);
 
   return new Response(file.buffer, {
     headers: {
@@ -74,10 +74,15 @@ export const PUT: RequestHandler = async ({ request, params, url, getClientAddre
 
   const fileName = params.b ? params.b : params.a;
   const fileHash = hash(file);
-  const { fileID, targetFileName } = await saveFile(file, isDisposable);
+  const fileID = await uploadFile(file, {
+    name: fileName,
+    type: request.headers.get("Content-Type"),
+
+    isDisposable,
+  });
 
   logger.info(
-    `File "${fileName}" uploaded as "${targetFileName}" with hash "${fileHash}" by "${getClientAddress()}" (${contentLength} bytes)`);
+    `File "${fileName}" uploaded as "${fileID}" with hash "${fileHash}" by "${getClientAddress()}" (${contentLength} bytes)`);
 
   return text(`${url.origin}/${fileID}/${encodeURI(fileName)}\n`, {
     headers: {

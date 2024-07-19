@@ -1,6 +1,7 @@
 import path from "path";
 import { env } from "$env/dynamic/private";
 
+export const DATA_DIR = env.DATA_DIR || "data";
 export const UPLOAD_DIR = env.UPLOAD_DIR || "uploads";
 export const CACHE_DIR = env.CACHE_DIR || path.join(UPLOAD_DIR, "cache");
 export const LOG_DIR = env.LOG_DIR || "logs";

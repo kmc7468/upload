@@ -4,6 +4,7 @@ services:
     build: .
     restart: unless-stopped
     volumes:
+      - upload-server-data:/usr/src/app/data
       - upload-server-log:/usr/src/app/logs
       - /etc/localtime:/etc/localtime:ro
     tmpfs:
@@ -20,4 +21,5 @@ services:
       - ${PORT:-80}:3000
 
 volumes:
+  upload-server-data:
   upload-server-log:

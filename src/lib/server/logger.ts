@@ -1,5 +1,5 @@
 import { createLogger, format, transports } from "winston";
-import { LOG_DIR } from "$lib/server/loadenv";
+import { LOG_DIR } from "./loadenv";
 
 const baseFormat = format.combine(
   format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),

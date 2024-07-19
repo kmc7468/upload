@@ -3,14 +3,13 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 import { promisify } from "util";
-import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
-import { findAsync, someAsync } from "$lib/utils";
-import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "$lib/server/loadenv";
+import { MAX_CONVERTIBLE_IMAGE_SIZE } from "../constants";
+import { createFile, findFile, findExpiredFiles, getAllFileIDs, deleteFile } from "./db/file";
+import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "./loadenv";
 
 type ImageFormat = ".jpeg" | ".png";
 type Format = ImageFormat;
 
-const fileExtensions = ["", ".d"];
 const imageFormats: ImageFormat[] = [".jpeg", ".png"];
 const formats = ([] as Format[]).concat(imageFormats);
 
@@ -18,6 +17,69 @@ const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 const existsAsync = promisify(fs.exists);
 const unlinkAsync = promisify(fs.unlink);
+
+interface FileAttributes {
+  name: string,
+  type: string | null,
+
+  isDisposable: boolean,
+}
+
+const generateRandomID = (length: number) => {
+  return Array.from({ length }, () => ID_CHARS[Math.floor(Math.random() * ID_CHARS.length)]).join("");
+};
+
+const generateUniqueID = () => {
+  while (true) {
+    const id = generateRandomID(ID_LENGTH);
+    if (!fs.existsSync(path.join(UPLOAD_DIR, id))) { // ID의 고유성을 최대한 보장하기 위해 Synchronous API를 사용
+      return id;
+    }
+  }
+};
+
+const filterContentType = (contentType: string | null) => {
+  if (!contentType ||
+      contentType === "application/octet-stream" ||
+      contentType.startsWith("message/") ||
+      contentType.startsWith("multipart/")) {
+
+    return undefined;
+  } else {
+    return contentType;
+  }
+}
+
+export const uploadFile = async (file: Buffer, attributes: FileAttributes) => {
+  const fileID = generateUniqueID();
+  const now = Date.now();
+
+  await writeFileAsync(path.join(UPLOAD_DIR, fileID), file, { mode: 0o600 });
+  await createFile({
+    id: fileID,
+    uploadedAt: now,
+    expireAt: now + FILE_EXPIRY,
+
+    fileName: attributes.name,
+    contentType: filterContentType(attributes.type),
+
+    isDisposable: attributes.isDisposable ? 1 : 0,
+  });
+
+  return fileID;
+}
+
+const readFileIfExist = async (path: string) => {
+  try {
+    return await readFileAsync(path);
+  } catch (error: any) {
+    if (error?.code === "ENOENT") {
+      return null;
+    } else {
+      throw error;
+    }
+  }
+}
 
 const readAndUnlinkFile = async (path: string, unlink: boolean) => {
   const file = await readFileAsync(path);
@@ -42,13 +104,14 @@ const convertImageFormat = (file: Buffer, targetFormat: ImageFormat) => {
   }
 };
 
-const convertFileFormat = async (fileID: string, targetPath: string, isDisposable: boolean, targetFormat: Format) => {
+const readAndConvertFile = async (fileID: string, isDisposable: boolean, targetFormat: Format) => {
   const cachePath = path.join(CACHE_DIR, fileID + targetFormat);
-  if (await existsAsync(cachePath)) {
-    return await readFileAsync(cachePath);
+  const cachedFile = await readFileIfExist(cachePath);
+  if (cachedFile !== null) {
+    return cachedFile;
   }
 
-  const file = await readAndUnlinkFile(targetPath, isDisposable);
+  const file = await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), isDisposable);
   const convertedFile = await (() => {
     if (imageFormats.includes(targetFormat)) {
       if (file.byteLength > MAX_CONVERTIBLE_IMAGE_SIZE) {
@@ -64,45 +127,22 @@ const convertFileFormat = async (fileID: string, targetPath: string, isDisposabl
   return convertedFile;
 };
 
-export const readFile = async (fileID: string, targetFormat?: Format) => {
-  const candidates = fileExtensions.map(ext => path.join(UPLOAD_DIR, fileID + ext));
-  const targetPath = await findAsync(candidates, existsAsync);
-  if (targetPath === undefined) {
+export const downloadFile = async (fileID: string, targetFormat?: Format) => {
+  const file = await findFile(fileID);
+  if (!file) {
     error(404);
   }
 
-  const extension = path.extname(targetPath);
-  const isDisposable = extension.includes("d");
-
-  return {
-    file: targetFormat === undefined ?
-      await readAndUnlinkFile(targetPath, isDisposable) :
-      await convertFileFormat(fileID, targetPath, isDisposable, targetFormat),
-    extension,
-  };
-};
-
-const generateRandomID = (length: number) => {
-  return Array.from({ length }, () => ID_CHARS[Math.floor(Math.random() * ID_CHARS.length)]).join("");
-};
-
-const generateUniqueID = async () => {
-  while (true) {
-    const id = generateRandomID(ID_LENGTH);
-    const candidates = fileExtensions.map(ext => path.join(UPLOAD_DIR, id + ext));
-    if (!await someAsync(candidates, existsAsync)) {
-      return id;
-    }
+  const isDisposable = !!file.isDisposable;
+  if (isDisposable) {
+    await deleteFile(fileID);
   }
-};
 
-export const saveFile = async (file: Buffer, isDisposable: boolean) => {
-  const fileID = await generateUniqueID();
-  const targetFileName = fileID + (isDisposable ? ".d" : "");
-
-  await writeFileAsync(path.join(UPLOAD_DIR, targetFileName), file, { mode: 0o600 });
-
-  return { fileID, targetFileName };
+  if (targetFormat === undefined) {
+    return await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), isDisposable);
+  } else {
+    return await readAndConvertFile(fileID, isDisposable, targetFormat);
+  }
 };
 
 const unlinkIfExist = async (path: string) => {
@@ -112,12 +152,32 @@ const unlinkIfExist = async (path: string) => {
 };
 
 export const unlinkExpiredFiles = async () => {
-  await Promise.all((await promisify(fs.readdir)(UPLOAD_DIR)).map(async file => {
-    const filePath = path.join(UPLOAD_DIR, file);
-    const fileStat = await promisify(fs.stat)(filePath);
-    if (fileStat.isFile() && Date.now() - fileStat.mtimeMs > FILE_EXPIRY) {
-      await unlinkAsync(filePath);
-      await Promise.all(formats.map(format => unlinkIfExist(path.join(CACHE_DIR, file + format))));
-    }
+  const expiredFiles = await findExpiredFiles();
+  await Promise.all(expiredFiles.map(async file => {
+    await deleteFile(file.id);
+    await Promise.all(formats.map(format => unlinkIfExist(path.join(CACHE_DIR, file.id + format))));
+    await unlinkAsync(path.join(UPLOAD_DIR, file.id));
+  }));
+};
+
+const calcDifference = <T>(a: Set<T>, b: Set<T>) => {
+  return [...a].filter(value => !b.has(value));
+}
+
+export const synchronizeWithDatabase = async () => {
+  const entryInFS = await promisify(fs.readdir)(UPLOAD_DIR);
+  const filesInFS = await Promise.all(entryInFS.map(async entry => {
+    const stat = await promisify(fs.stat)(path.join(UPLOAD_DIR, entry));
+    return stat.isFile() ? entry : null;
+  }));
+
+  const fileIdsInFS = new Set(filesInFS.filter(file => file !== null));
+  const fileIdsInDB = new Set(await getAllFileIDs());
+
+  await Promise.all(calcDifference(fileIdsInFS, fileIdsInDB).map(async fileID => {
+    await unlinkAsync(path.join(UPLOAD_DIR, fileID));
+  }));
+  await Promise.all(calcDifference(fileIdsInDB, fileIdsInFS).map(async fileID => {
+    await deleteFile(fileID);
   }));
 };
