@@ -160,6 +160,10 @@ export const unlinkExpiredFiles = async () => {
   }));
 };
 
+const calcDifference = <T>(a: Set<T>, b: Set<T>) => {
+  return [...a].filter(value => !b.has(value));
+}
+
 export const synchronizeWithDatabase = async () => {
   const entryInFS = await promisify(fs.readdir)(UPLOAD_DIR);
   const filesInFS = await Promise.all(entryInFS.map(async entry => {
@@ -170,10 +174,10 @@ export const synchronizeWithDatabase = async () => {
   const fileIdsInFS = new Set(filesInFS.filter(file => file !== null));
   const fileIdsInDB = new Set(await getAllFileIDs());
 
-  await Promise.all([...fileIdsInFS.difference(fileIdsInDB)].map(async fileID => {
+  await Promise.all(calcDifference(fileIdsInFS, fileIdsInDB).map(async fileID => {
     await unlinkAsync(path.join(UPLOAD_DIR, fileID));
   }));
-  await Promise.all([...fileIdsInDB.difference(fileIdsInFS)].map(async fileID => {
+  await Promise.all(calcDifference(fileIdsInDB, fileIdsInFS).map(async fileID => {
     await deleteFile(fileID);
   }));
 };
