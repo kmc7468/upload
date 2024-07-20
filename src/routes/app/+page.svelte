@@ -17,13 +17,13 @@
 <main>
   <section>
     <h2>Upload</h2>
-    <p>
-      {#if browser}
+    {#if browser}
+      <p>
+        You may use <code>curl</code> to upload like this:
         {#if isEnabledEncryption}
-          You may use <code>curl</code> to upload like this:
           <code>
             openssl enc -e -aes-256-cbc -pbkdf2 &lt; <i>your_filename</i> |
-            curl --data-binary @- -H "Content-Type:"
+            curl --upload-file -
             {#if isDisposable}
               {window.location.origin}/de/<i>your_filename</i>
             {:else}
@@ -31,7 +31,6 @@
             {/if}
           </code>
         {:else}
-          You may use <code>curl</code> to upload like this:
           <code>
             curl --upload-file <i>your_filename</i>
             {#if isDisposable}
@@ -41,8 +40,8 @@
             {/if}
           </code>
         {/if}
-      {/if}
-    </p>
+      </p>
+    {/if}
     <form>
       <section id="options" class="rounded-box">
         <p>Change below options <strong>before</strong> selecting a file, if you want to.</p>

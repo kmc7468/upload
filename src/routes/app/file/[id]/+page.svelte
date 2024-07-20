@@ -134,17 +134,17 @@
     {#if data.file === null}
       <p>File not found!</p>
     {:else}
+      {#if browser}
       <p>
-        {#if browser}
-          {#if data.file.isEncrypted}
-            You may use <code>curl</code> to download like this:
-            <code>curl -s {window.location.origin}/{data.file.id} | openssl enc -d -aes-256-cbc -pbkdf2 &gt; "{data.file.name}"</code>
-          {:else}
-            You may use <code>curl</code> to download like this:
-            <code>curl -O "{window.location.origin}/{data.file.id}/{data.file.name}"</code>
-          {/if}
+        You may use <code>curl</code> to download like this:
+        {#if data.file.isEncrypted}
+          <code>curl -s {window.location.origin}/{data.file.id} | openssl enc -d -aes-256-cbc -pbkdf2 &gt; "{data.file.name}"</code>
+        {:else}
+          You may use <code>curl</code> to download like this:
+          <code>curl -O "{window.location.origin}/{data.file.id}/{data.file.name}"</code>
         {/if}
       </p>
+      {/if}
       <section id="download-section">
         <p class="rounded-box">
           Name: {data.file.name}
