@@ -9,12 +9,16 @@
   export let isUploading: Writable<boolean>;
 
   let passphrase = "";
-  let file: HTMLInputElement;
+  let file: HTMLInputElement | undefined;
   let uploadStatus: UploadStatus;
+
+  $: if (file) {
+    file.disabled = $isUploading;
+  }
 
   const determineFileType = (file: File) => {
     if (file.type) {
-      return file.type
+      return file.type;
     }
 
     const fileName = file.name.toLowerCase();
@@ -44,7 +48,7 @@
   };
 
   const uploadFile = async () => {
-    const targetFile = file.files?.[0];
+    const targetFile = file!.files?.[0];
     if (!targetFile) {
       return;
     } else if (targetFile.size > MAX_FILE_SIZE) {
@@ -55,15 +59,37 @@
       return;
     }
 
+    let targetContent: File | Blob = targetFile;
+
+    if (isEncryption) {
+      try {
+        uploadStatus.displayEncrypting();
+        $isUploading = true;
+
+        targetContent = new Blob([await encryptFile(targetFile)]);
+        if (targetContent.size > MAX_FILE_SIZE) {
+          uploadStatus.displayFailure();
+          alert("The encrypted file is too large.");
+          return;
+        }
+      } catch {
+        uploadStatus.displayFailure();
+        alert("An error occurred while encrypting the file.");
+        return;
+      } finally {
+        $isUploading = false;
+      }
+    }
+
     const xhr = new XMLHttpRequest();
-    const fileType = isEncryption ? "application/octet-stream" : determineFileType(targetFile);
+    const fileType = isEncryption ? "" : determineFileType(targetFile);
 
     xhr.addEventListener("loadstart", () => {
-      file.disabled = true;
       $isUploading = true;
     });
     xhr.addEventListener("load", async () => {
       if (xhr.status === 200) {
+        // TODO: Fix me
         const downloadURL = xhr.responseText.substring(0, xhr.responseText.length - 1); // 개행 제거
         const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
 
@@ -79,7 +105,6 @@
       alert("An error occurred while uploading the file.");
     });
     xhr.addEventListener("loadend", () => {
-      file.disabled = false;
       $isUploading = false;
     });
 
@@ -103,24 +128,19 @@
       loaded = event.loaded;
       uploadStatus.updateUploadProgress(percent, throughput);
     });
-    
-    const fileName = encodeURI(targetFile.name + (isEncryption ? ".enc" : ""));
-    const uploadURL = `${window.location.origin}/${isDisposable ? "d/" : ""}${fileName}`;
-    let body: File | Uint8Array;
 
-    if (isEncryption) {
-      body = await encryptFile(targetFile);
-      if (body.byteLength > MAX_FILE_SIZE) {
-        alert("The encrypted file is too large.");
-        return;
-      }
-    } else {
-      body = targetFile;
-    }
+    const formData = new FormData();
+    formData.append("options", JSON.stringify({
+      name: targetFile.name + (isEncryption ? ".enc" : ""),
+      contentType: fileType || "application/octet-stream",
 
-    xhr.open("PUT", uploadURL);
-    xhr.setRequestHeader("Content-Type", fileType || "application/octet-stream");
-    xhr.send(body);
+      isDisposable,
+      isEncryption,
+    }));
+    formData.append("file", targetContent);
+
+    xhr.open("POST", "/api/file/upload");
+    xhr.send(formData);
   };
 </script>
 

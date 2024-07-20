@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ONE_KIBI, ONE_MEBI, ONE_GIBI } from "$lib/constants";
 
-  let status: "uploading" | "uploaded" | "failed";
+  let status: "encrypting" | "uploading" | "uploaded" | "failed";
 
   let percent: number;
   let throughput: string;
@@ -21,6 +21,9 @@
     }
   };
 
+  export const displayEncrypting = () => {
+    status = "encrypting";
+  }
   export const updateUploadProgress = (newPercent: number, newThroughput: number) => {
     status = "uploading";
     percent = newPercent;
@@ -36,7 +39,9 @@
   }
 </script>
 
-{#if status === "uploading"}
+{#if status === "encrypting"}
+  <p>Encrypting the file...</p>
+{:else if status === "uploading"}
   <p>Uploading the file... ({percent}%, {throughput})</p>
 {:else if status === "uploaded"}
   <p>
