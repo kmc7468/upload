@@ -5,13 +5,16 @@
   import UploadStatus from "./UploadStatus.svelte";
 
   export let isDisposable: boolean;
-  export let isEncryption: boolean;
+  export let isEnabledEncryption: boolean;
   export let isUploading: Writable<boolean>;
 
-  let passphrase = "";
+  let passphrase: HTMLInputElement | undefined;
   let file: HTMLInputElement | undefined;
   let uploadStatus: UploadStatus;
 
+  $: if (passphrase) {
+    passphrase.disabled = $isUploading;
+  }
   $: if (file) {
     file.disabled = $isUploading;
   }
@@ -31,7 +34,7 @@
     }
   };
 
-  const encryptFile = async (file: File) => {
+  const encryptFile = async (file: File, passphrase: string) => {
     const saltPrefix = new TextEncoder().encode("Salted__");
     const salt = generateSalt(8); // For compatibility with OpenSSL
     const key = await deriveBitsUsingPBKDF2(passphrase, salt, 256 + 128);
@@ -54,19 +57,19 @@
     } else if (targetFile.size > MAX_FILE_SIZE) {
       alert("The file is too large.");
       return;
-    } else if (isEncryption && passphrase === "") {
+    } else if (isEnabledEncryption && passphrase!.value === "") {
       alert("The passphrase is required.");
       return;
     }
 
     let targetContent: File | Blob = targetFile;
 
-    if (isEncryption) {
+    if (isEnabledEncryption) {
       try {
         uploadStatus.displayEncrypting();
         $isUploading = true;
 
-        targetContent = new Blob([await encryptFile(targetFile)]);
+        targetContent = new Blob([await encryptFile(targetFile, passphrase!.value)]);
         if (targetContent.size > MAX_FILE_SIZE) {
           uploadStatus.displayFailure();
           alert("The encrypted file is too large.");
@@ -82,7 +85,7 @@
     }
 
     const xhr = new XMLHttpRequest();
-    const fileType = isEncryption ? "" : determineFileType(targetFile);
+    const fileType = isEnabledEncryption ? "" : determineFileType(targetFile);
 
     xhr.addEventListener("loadstart", () => {
       $isUploading = true;
@@ -92,7 +95,7 @@
         const fileID = xhr.responseText;
         const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
 
-        if (isEncryption) {
+        if (isEnabledEncryption) {
           uploadStatus.updateDownloadURL(`${window.location.origin}/app/file/${fileID}`, false);
         } else {
           uploadStatus.updateDownloadURL(`${window.location.origin}/${fileID}/${encodeURI(targetFile.name)}`, isImage);
@@ -139,7 +142,7 @@
       contentType: fileType || "application/octet-stream",
 
       isDisposable,
-      isEncrypted: isEncryption,
+      isEncrypted: isEnabledEncryption,
     }));
     formData.append("file", targetContent);
 
@@ -148,14 +151,14 @@
   };
 </script>
 
-{#if isEncryption}
+{#if isEnabledEncryption}
   <label id="passphrase">
     Passphrase:&nbsp;
-    <input type="password" bind:value={passphrase} on:keydown={
-      (event) => {
+    <input type="password" bind:this={passphrase} on:keydown={
+      async event => {
         if (event.key === "Enter") {
           event.preventDefault();
-          uploadFile();
+          await uploadFile();
         }
       }
     } />

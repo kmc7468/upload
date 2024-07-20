@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ONE_KIBI, ONE_MEBI, ONE_GIBI } from "$lib/constants";
+  import { formatThroughput } from "$lib/utils";
 
   let status: "encrypting" | "uploading" | "uploaded" | "failed";
 
@@ -9,34 +9,22 @@
   let downloadURL: string;
   let isImage: boolean;
 
-  const formatThroughput = (throughput: number) => {
-    if (throughput < ONE_KIBI) {
-      return `${throughput} B/s`;
-    } else if (throughput < ONE_MEBI) {
-      return `${Math.round(throughput / ONE_KIBI)} KiB/s`;
-    } else if (throughput < ONE_GIBI) {
-      return `${Math.round(throughput / ONE_MEBI)} MiB/s`;
-    } else {
-      return `${Math.round(throughput / ONE_GIBI)} GiB/s`;
-    }
-  };
-
   export const displayEncrypting = () => {
     status = "encrypting";
-  }
+  };
   export const updateUploadProgress = (newPercent: number, newThroughput: number) => {
     status = "uploading";
     percent = newPercent;
     throughput = formatThroughput(newThroughput);
-  }
+  };
   export const updateDownloadURL = (newDownloadURL: string, newIsImage: boolean) => {
     status = "uploaded";
     downloadURL = newDownloadURL;
     isImage = newIsImage;
-  }
+  };
   export const displayFailure = () => {
     status = "failed";
-  }
+  };
 </script>
 
 {#if status === "encrypting"}
