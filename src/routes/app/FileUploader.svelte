@@ -98,7 +98,7 @@
         if (isEnabledEncryption) {
           uploadStatus.updateDownloadURL(`${window.location.origin}/app/file/${fileID}`, false);
         } else {
-          uploadStatus.updateDownloadURL(`${window.location.origin}/${fileID}/${encodeURI(targetFile.name)}`, isImage);
+          uploadStatus.updateDownloadURL(`${window.location.origin}/${fileID}/${encodeURIComponent(targetFile.name)}`, isImage);
         }
 
         alert("The file has been uploaded successfully.");

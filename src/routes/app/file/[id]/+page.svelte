@@ -13,7 +13,7 @@
   const isImage = data.file?.contentType.startsWith("image/") || false;
 
   if (browser && data.file) {
-    downloadURL = `${window.location.origin}/${data.file.id}/${encodeURI(data.file.name)}`;
+    downloadURL = `${window.location.origin}/${data.file.id}/${encodeURIComponent(data.file.name)}`;
   }
 
   let passphrase = "";

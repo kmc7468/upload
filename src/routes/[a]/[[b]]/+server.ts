@@ -33,7 +33,7 @@ export const GET: RequestHandler = async ({ params, url, fetch }) => {
   const file = formData.get("file") as File;
   return new Response(file, {
     headers: {
-      "Content-Disposition": (fileName ? `attachment; filename="${encodeURI(fileName)}"` : "inline"),
+      "Content-Disposition": (fileName ? `attachment; filename="${encodeURIComponent(fileName)}"` : "inline"),
       "Content-Length": file.size.toString(),
       "Content-Type": "", // Let the browser infer it
     }
@@ -73,9 +73,15 @@ export const POST: RequestHandler = async ({ request, params, url, fetch }) => {
   }
 
   const fileID = await response.text();
-  return text(
-    `${url.origin}/${fileID}/${encodeURI(fileName)}\n`,
-    { headers: { "Content-Type": "text/plain" } });
+
+  if (isEncrypted) {
+    return text(`curl -s ${url.origin}/${fileID} | openssl enc -d -aes-256-cbc -pbkdf2 > "${fileName}"\n`,
+      { headers: { "Content-Type": "text/plain" } });
+  } else {
+    return text(
+      `curl -O "${url.origin}/${fileID}/${encodeURIComponent(fileName)}"\n`,
+      { headers: { "Content-Type": "text/plain" } });
+  }
 };
 
 export const PUT = POST;
