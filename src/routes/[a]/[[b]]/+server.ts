@@ -1,6 +1,5 @@
 
 import { error, text } from "@sveltejs/kit";
-import { MAX_FILE_SIZE } from "$lib/constants";
 import { ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
 import type { RequestHandler } from "./$types";
 
@@ -43,9 +42,7 @@ export const GET: RequestHandler = async ({ params, url, fetch }) => {
 };
 
 const isValidFileAttr = (fileAttr: string) => {
-  return fileAttr.split("").every(
-    char => "de".includes(char) &&
-    !fileAttr.includes(char, fileAttr.indexOf(char) + 1));
+  return fileAttr.split("").every(char => "de".includes(char));
 };
 
 export const PUT: RequestHandler = async ({ request, params, url, fetch }) => {
@@ -58,11 +55,6 @@ export const PUT: RequestHandler = async ({ request, params, url, fetch }) => {
 
   const fileName = params.b ? params.b : params.a;
 
-  const file = await request.blob();
-  if (file.size > MAX_FILE_SIZE) {
-    error(413);
-  }
-
   const formData = new FormData();
   formData.append("options", JSON.stringify({
     name: fileName,
@@ -71,7 +63,7 @@ export const PUT: RequestHandler = async ({ request, params, url, fetch }) => {
     isDisposable,
     isEncrypted,
   }));
-  formData.append("file", file);
+  formData.append("file", await request.blob());
 
   const response = await fetch("/api/file/upload", {
     method: "POST",

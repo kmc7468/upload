@@ -37,7 +37,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   } = parsedOptions.data;
 
   const file = form.get("file") as File | null;
-  if (!file) {
+  if (!file || file.size === 0) {
     error(400);
   } else if (file.size > MAX_FILE_SIZE) {
     error(413);
