@@ -15,7 +15,8 @@
     "kysely": "^0.27.4",
     "node-schedule": "^2.1.1",
     "sharp": "^0.33.4",
-    "winston": "^3.13.0"
+    "winston": "^3.13.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.0",

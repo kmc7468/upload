@@ -1,92 +1,88 @@
 
 import { error, text } from "@sveltejs/kit";
-import crypto from "crypto";
 import { MAX_FILE_SIZE } from "$lib/constants";
-import { uploadFile, downloadFile } from "$lib/server/filesystem";
 import { ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
-import logger from "$lib/server/logger";
 import type { RequestHandler } from "./$types";
 
 const idRegex = new RegExp(`^[${ID_CHARS}]{${ID_LENGTH}}$`);
 
-export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
+export const GET: RequestHandler = async ({ params, url, fetch }) => {
   const fileID = params.a;
   const fileName = params.b;
   if (!idRegex.test(fileID)) {
     error(404);
   }
 
-  const targetFormat = (() => {
+  const requiredType = (() => {
     if (url.searchParams.has("jpeg") || url.searchParams.has("jpg")) {
-      return ".jpeg";
+      return "jpeg";
     } else if (url.searchParams.has("png")) {
-      return ".png";
+      return "png";
     } else {
       return undefined;
     }
   })();
-  const file = await downloadFile(fileID, targetFormat);
 
-  logger.info(`File "${fileID}" downloaded by "${getClientAddress()}"`);
+  const response = await fetch("/api/file/download?" + new URLSearchParams({
+    id: fileID,
+    conv: requiredType || "",
+  }).toString());
+  if (!response.ok) {
+    error(response.status);
+  }
 
-  return new Response(file.buffer, {
+  const formData = await response.formData();
+  const file = formData.get("file") as File;
+  return new Response(file, {
     headers: {
-      "Content-Disposition": (fileName ? `attachment; filename="${encodeURI(fileName)}"` : "inline")
+      "Content-Disposition": (fileName ? `attachment; filename="${encodeURI(fileName)}"` : "inline"),
+      "Content-Length": file.size.toString(),
+      "Content-Type": "", // Let the browser infer it
     }
   });
 };
 
 const isValidFileAttr = (fileAttr: string) => {
   return fileAttr.split("").every(
-    char => "d".includes(char) &&
+    char => "de".includes(char) &&
     !fileAttr.includes(char, fileAttr.indexOf(char) + 1));
 };
 
-const hash = (buffer: Buffer) => {
-  return crypto.createHash("sha256").update(buffer).digest("hex");
-};
-
-export const PUT: RequestHandler = async ({ request, params, url, getClientAddress }) => {
-  const contentLength = (() => {
-    const contentLength = request.headers.get("Content-Length");
-    if (!contentLength) {
-      error(411);
-    }
-    return parseInt(contentLength, 10);
-  })();
-  if (contentLength === 0) {
-    error(400);
-  } else if (contentLength > MAX_FILE_SIZE) {
-    error(413);
-  }
-
+export const PUT: RequestHandler = async ({ request, params, url, fetch }) => {
   const fileAttr = params.b ? params.a : undefined;
   if (fileAttr && !isValidFileAttr(fileAttr)) {
     error(404);
   }
-
   const isDisposable = fileAttr?.includes("d") ?? false;
-
-  const file = Buffer.from(await request.arrayBuffer());
-  if (file.byteLength !== contentLength) {
-    error(400);
-  }
+  const isEncrypted = fileAttr?.includes("e") ?? false;
 
   const fileName = params.b ? params.b : params.a;
-  const fileHash = hash(file);
-  const fileID = await uploadFile(file, {
+
+  const file = await request.blob();
+  if (file.size > MAX_FILE_SIZE) {
+    error(413);
+  }
+
+  const formData = new FormData();
+  formData.append("options", JSON.stringify({
     name: fileName,
-    type: request.headers.get("Content-Type"),
+    contentType: request.headers.get("Content-Type"),
 
     isDisposable,
-  });
+    isEncrypted,
+  }));
+  formData.append("file", file);
 
-  logger.info(
-    `File "${fileName}" uploaded as "${fileID}" with hash "${fileHash}" by "${getClientAddress()}" (${contentLength} bytes)`);
-
-  return text(`${url.origin}/${fileID}/${encodeURI(fileName)}\n`, {
-    headers: {
-      "Content-Type": "text/plain"
-    }
+  const response = await fetch("/api/file/upload", {
+    method: "POST",
+    body: formData,
   });
+  if (!response.ok) {
+    error(response.status);
+  }
+
+  const fileID = await response.text();
+  return text(
+    `${url.origin}/${fileID}/${encodeURI(fileName)}\n`,
+    { headers: { "Content-Type": "text/plain" } });
 };

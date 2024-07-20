@@ -5,10 +5,11 @@ export interface FileTable {
   uploadedAt: number, // timestamp
   expireAt: number, // timestamp
 
-  fileName: string,
-  contentType: string | null,
+  name: string,
+  contentType: string,
 
   isDisposable: number, // boolean
+  isEncrypted: number, // boolean
 }
 
 export type File = Selectable<FileTable>;

@@ -7,17 +7,27 @@ import { MAX_CONVERTIBLE_IMAGE_SIZE } from "../constants";
 import { createFile, findFile, findExpiredFiles, getAllFileIDs, deleteFile } from "./db/file";
 import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "./loadenv";
 
-type ImageFormat = ".jpeg" | ".png";
-type Format = ImageFormat;
+type ImageType = "jpeg" | "png";
+type FileType = ImageType;
 
-const imageFormats: ImageFormat[] = [".jpeg", ".png"];
-const formats = ([] as Format[]).concat(imageFormats);
+const imageTypes = ["jpeg", "png"] satisfies ImageType[];
+const fileTypes = ([] as FileType[]).concat(imageTypes);
+
+const convertToMIMEType = (type: FileType) => {
+  switch (type) {
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+  }
+};
 
 interface FileAttributes {
   name: string,
-  type: string | null,
+  contentType: string,
 
   isDisposable: boolean,
+  isEncrypted: boolean,
 }
 
 const generateRandomID = (length: number) => {
@@ -33,17 +43,13 @@ const generateUniqueID = () => {
   }
 };
 
-const filterContentType = (contentType: string | null) => {
-  if (!contentType ||
-      contentType === "application/octet-stream" ||
-      contentType.startsWith("message/") ||
-      contentType.startsWith("multipart/")) {
-
-    return undefined;
+const determineContentType = (type: string) => {
+  if (type.startsWith("message/") || type.startsWith("multipart/")) {
+    return "application/octet-stream";
   } else {
-    return contentType;
+    return type;
   }
-}
+};
 
 export const uploadFile = async (file: Buffer, attributes: FileAttributes) => {
   const fileID = generateUniqueID();
@@ -55,14 +61,15 @@ export const uploadFile = async (file: Buffer, attributes: FileAttributes) => {
     uploadedAt: now,
     expireAt: now + FILE_EXPIRY,
 
-    fileName: attributes.name,
-    contentType: filterContentType(attributes.type),
+    name: attributes.name,
+    contentType: determineContentType(attributes.contentType),
 
     isDisposable: attributes.isDisposable ? 1 : 0,
+    isEncrypted: attributes.isEncrypted ? 1 : 0,
   });
 
   return fileID;
-}
+};
 
 const readFileIfExist = async (path: string) => {
   try {
@@ -74,7 +81,7 @@ const readFileIfExist = async (path: string) => {
       throw error;
     }
   }
-}
+};
 
 const readAndUnlinkFile = async (path: string, unlink: boolean) => {
   const file = await fs.readFile(path);
@@ -82,50 +89,65 @@ const readAndUnlinkFile = async (path: string, unlink: boolean) => {
     await fs.unlink(path);
   }
   return file;
-}
+};
 
-const convertImageFormat = (file: Buffer, targetFormat: ImageFormat) => {
+const convertImage = (file: Buffer, requiredType: ImageType) => {
   const image = sharp(file, {
     limitInputPixels: false,
   }).keepMetadata();
 
-  if (targetFormat === ".jpeg") {
-    return image.jpeg({
-      quality: 100,
-      chromaSubsampling: "4:4:4",
-    }).toBuffer();
-  } else if (targetFormat === ".png") {
-    return image.png().toBuffer();
+  switch (requiredType) {
+    case "jpeg":
+      return image.jpeg({
+        quality: 100,
+        chromaSubsampling: "4:4:4",
+      }).toBuffer();
+    case "png":
+      return image.png().toBuffer();
   }
 };
 
-const readAndConvertFile = async (fileID: string, isDisposable: boolean, targetFormat: Format) => {
-  const cachePath = path.join(CACHE_DIR, fileID + targetFormat);
+const readAndConvertFile = async (fileID: string, isDisposable: boolean, requiredType: FileType) => {
+  const requiredMIMEType = convertToMIMEType(requiredType);
+
+  const cachePath = path.join(CACHE_DIR, fileID + "." + requiredType);
   const cachedFile = await readFileIfExist(cachePath);
   if (cachedFile !== null) {
-    return cachedFile;
+    return {
+      content: cachedFile,
+      contentType: requiredMIMEType,
+    };
   }
 
   const file = await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), isDisposable);
   const convertedFile = await (() => {
-    if (imageFormats.includes(targetFormat)) {
+    if (imageTypes.includes(requiredType)) {
       if (file.byteLength > MAX_CONVERTIBLE_IMAGE_SIZE) {
         error(413);
       }
-      return convertImageFormat(file, targetFormat);
+      return convertImage(file, requiredType as ImageType);
     }
   })() as Buffer;
 
   if (!isDisposable) {
     await fs.writeFile(cachePath, convertedFile, { mode: 0o600 });
   }
-  return convertedFile;
+
+  return {
+    content: convertedFile,
+    contentType: requiredMIMEType,
+  };
 };
 
-export const downloadFile = async (fileID: string, targetFormat?: Format) => {
+export const downloadFile = async (fileID: string, requiredType?: FileType) => {
   const file = await findFile(fileID);
   if (!file) {
     error(404);
+  }
+
+  const isEncrypted = !!file.isEncrypted;
+  if (isEncrypted && requiredType !== undefined) {
+    error(400); 
   }
 
   const isDisposable = !!file.isDisposable;
@@ -133,10 +155,23 @@ export const downloadFile = async (fileID: string, targetFormat?: Format) => {
     await deleteFile(fileID);
   }
 
-  if (targetFormat === undefined) {
-    return await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), isDisposable);
+  if (requiredType === undefined) {
+    return {
+      name: file.name,
+      content: await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), isDisposable),
+      contentType: file.contentType,
+
+      isEncrypted,
+    };
   } else {
-    return await readAndConvertFile(fileID, isDisposable, targetFormat);
+    const convertedFile = await readAndConvertFile(fileID, isDisposable, requiredType);
+    return {
+      name: file.name,
+      content: convertedFile.content,
+      contentType: convertedFile.contentType,
+
+      isEncrypted,
+    }
   }
 };
 
@@ -154,14 +189,14 @@ export const unlinkExpiredFiles = async () => {
   const expiredFiles = await findExpiredFiles();
   await Promise.all(expiredFiles.map(async file => {
     await deleteFile(file.id);
-    await Promise.all(formats.map(format => unlinkIfExist(path.join(CACHE_DIR, file.id + format))));
+    await Promise.all(fileTypes.map(type => unlinkIfExist(path.join(CACHE_DIR, file.id + "." + type))));
     await fs.unlink(path.join(UPLOAD_DIR, file.id));
   }));
 };
 
 const calcDifference = <T>(a: Set<T>, b: Set<T>) => {
   return [...a].filter(value => !b.has(value));
-}
+};
 
 export const synchronizeWithDatabase = async () => {
   const entryInFS = await fs.readdir(UPLOAD_DIR);

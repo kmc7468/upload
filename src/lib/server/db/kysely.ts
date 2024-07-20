@@ -18,9 +18,10 @@ export const initializeDatabase = async () => {
     .addColumn("id", "text", cb => cb.primaryKey())
     .addColumn("uploadedAt", "integer", cb => cb.notNull())
     .addColumn("expireAt", "integer", cb => cb.notNull())
-    .addColumn("fileName", "text", cb => cb.notNull())
-    .addColumn("contentType", "text")
+    .addColumn("name", "text", cb => cb.notNull())
+    .addColumn("contentType", "text", cb => cb.notNull())
     .addColumn("isDisposable", "integer", cb => cb.notNull())
+    .addColumn("isEncrypted", "integer", cb => cb.notNull())
     .execute();
 };
 
