@@ -132,21 +132,33 @@
     {#if data.file === null}
       <p>File not found!</p>
     {:else}
-      <section>
-        <p>Name: {data.file.name}</p>
-        {#if !data.file.isEncrypted}
-          <p>Content Type: {data.file.contentType}</p>
+      <p>
+        {#if browser}
+          {#if data.file.isEncrypted}
+            You may use <code>curl</code> and <code>openssl</code> to download and decrypt like this:
+            <code>curl -s {window.location.origin}/{data.file.id} | openssl enc -d -aes-256-cbc -pbkdf2 &gt; {data.file.name}</code>
+          {:else}
+            You may use <code>curl</code> to download like this:
+            <code>curl {window.location.origin}/{data.file.id}/{data.file.name}</code>
+          {/if}
         {/if}
-
+      </p>
+      <section id="download-section">
+        <p class="rounded-box">
+          Name: {data.file.name}
+          {#if !data.file.isEncrypted}
+            <br>Content Type: {data.file.contentType}
+          {/if}
+        </p>
         {#if data.file.isEncrypted}
-          <form>
+          <form class="rounded-box">
             <p>
               The file is encrypted!
               You need the passphrase to download and decrypt it.
             </p>
             <label>
               Passphrase:&nbsp;
-              <input type="password" disabled={isDownloading} bind:value={passphrase} on:keydown={
+              <input type="password" disabled={isDownloading || !!file} bind:value={passphrase} on:keydown={
                 async event => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -155,28 +167,28 @@
                 }
               } />
             </label>
-          </form>
-          {#if passphrase !== ""}
-            <button disabled={isDownloading} on:click={downloadAndDecryptFile}>
-              {#if downloadStatus === "" ||
-                   downloadStatus.startsWith("Downloading") ||
-                   downloadStatus.startsWith("Failed to download")}
+            {#if passphrase !== ""}
+              <button id="download-decrypt" disabled={isDownloading} on:click={downloadAndDecryptFile}>
+                {#if downloadStatus === "" ||
+                     downloadStatus.startsWith("Downloading") ||
+                     downloadStatus.startsWith("Failed to download")}
 
-                Download and Decrypt
-              {:else if downloadStatus.startsWith("Decrypting") ||
-                        downloadStatus.startsWith("Failed to decrypt")}
+                  Download and Decrypt
+                {:else if downloadStatus.startsWith("Decrypting") ||
+                          downloadStatus.startsWith("Failed to decrypt")}
 
-                Decrypt
-              {:else}
-                Save as file
+                  Decrypt
+                {:else}
+                  Save as file
+                {/if}
+              </button>
+              {#if downloadStatus !== ""}
+                <p id="download-status">{downloadStatus}</p>
               {/if}
-            </button>
-            {#if downloadStatus !== ""}
-              <p>{downloadStatus}</p>
             {/if}
-          {/if}
+          </form>
         {:else}
-          <p>
+          <p class="rounded-box">
             Download URL:
             <a id="download" href={downloadURL}><b>{decodeURI(downloadURL)}</b></a>
             {#if isImage}
@@ -197,12 +209,22 @@
 </main>
 
 <style>
-  form {
+  code {
+    background-color: #EEEEEE;
+    border-radius: 3px;
+    padding: 1px 3px;
+  }
+  #download-section {
     width: fit-content;
-    margin: 16px 0;
+  }
+  .rounded-box {
+    background-color: #EEEEEE;
+    border-radius: 10px;
+    box-sizing: border-box;
+    padding: 5px 10px;
   }
   form p {
-    margin-bottom: 4px;
+    margin: 0;
   }
   form label {
     align-items: center;
@@ -211,7 +233,14 @@
   form label input {
     flex-grow: 1;
   }
-   #download {
+  form #download-decrypt {
+    display: inline-block;
+    margin-top: 16px;
+  }
+  form #download-status {
+    display: inline-block;
+  }
+  #download {
     word-break: break-all;
   }
 </style>
