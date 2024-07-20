@@ -44,7 +44,7 @@ const isValidFileAttr = (fileAttr: string) => {
   return fileAttr.split("").every(char => "de".includes(char));
 };
 
-export const PUT: RequestHandler = async ({ request, params, url, fetch }) => {
+export const POST: RequestHandler = async ({ request, params, url, fetch }) => {
   const fileAttr = params.b ? params.a : undefined;
   if (fileAttr && !isValidFileAttr(fileAttr)) {
     error(404);
@@ -77,3 +77,5 @@ export const PUT: RequestHandler = async ({ request, params, url, fetch }) => {
     `${url.origin}/${fileID}/${encodeURI(fileName)}\n`,
     { headers: { "Content-Type": "text/plain" } });
 };
+
+export const PUT = POST;

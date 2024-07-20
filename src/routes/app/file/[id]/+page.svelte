@@ -137,11 +137,11 @@
       <p>
         {#if browser}
           {#if data.file.isEncrypted}
-            You may use <code>curl</code> and <code>openssl</code> to download and decrypt like this:
-            <code>curl -s {window.location.origin}/{data.file.id} | openssl enc -d -aes-256-cbc -pbkdf2 &gt; {data.file.name}</code>
+            You may use <code>curl</code> to download like this:
+            <code>curl -s {window.location.origin}/{data.file.id} | openssl enc -d -aes-256-cbc -pbkdf2 &gt; "{data.file.name}"</code>
           {:else}
             You may use <code>curl</code> to download like this:
-            <code>curl {window.location.origin}/{data.file.id}/{data.file.name}</code>
+            <code>curl -O "{window.location.origin}/{data.file.id}/{data.file.name}"</code>
           {/if}
         {/if}
       </p>

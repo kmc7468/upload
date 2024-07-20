@@ -1,5 +1,6 @@
 <script lang="ts">
   import { writable } from "svelte/store";
+  import { browser } from "$app/environment";
   import FileUploader from "./FileUploader.svelte";
 
   import "$lib/style.css";
@@ -17,9 +18,30 @@
   <section>
     <h2>Upload</h2>
     <p>
-      You may use <code>curl</code> to upload like this:
-      <code hidden={isDisposable}>curl --upload-file your_filename https://upload.minchan.me</code>
-      <code hidden={!isDisposable}>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code>
+      {#if browser}
+        {#if isEnabledEncryption}
+          You may use <code>curl</code> to upload like this:
+          <code>
+            openssl enc -e -aes-256-cbc -pbkdf2 &lt; <i>your_filename</i> |
+            curl --data-binary @- -H "Content-Type:"
+            {#if isDisposable}
+              {window.location.origin}/de/<i>your_filename</i>
+            {:else}
+              {window.location.origin}/e/<i>your_filename</i>
+            {/if}
+          </code>
+        {:else}
+          You may use <code>curl</code> to upload like this:
+          <code>
+            curl --upload-file <i>your_filename</i>
+            {#if isDisposable}
+              {window.location.origin}/d/<i>your_filename</i>
+            {:else}
+              {window.location.origin}
+            {/if}
+          </code>
+        {/if}
+      {/if}
     </p>
     <form>
       <section id="options" class="rounded-box">
