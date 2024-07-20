@@ -91,7 +91,7 @@
         isDownloading = false;
         downloadStatus = "Failed to download the encrypted file!";
 
-        alert("An error occurred while downloading the encrypted file.");
+        alert("An error occurred while downloading the encrypted file. The file may be expired.");
         return;
       }
     }
@@ -109,7 +109,7 @@
         isDownloading = false;
         downloadStatus = "Failed to decrypt the file!";
 
-        alert("An error occurred while decrypting the file. Check the passphrase.");
+        alert("An error occurred while decrypting the file. Your passphrase may be incorrect.");
         return;
       }
     }
