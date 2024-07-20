@@ -8,6 +8,9 @@ dependencies:
   better-sqlite3:
     specifier: ^11.1.2
     version: 11.1.2
+  file-saver:
+    specifier: ^2.0.5
+    version: 2.0.5
   kysely:
     specifier: ^0.27.4
     version: 0.27.4
@@ -40,6 +43,9 @@ devDependencies:
   '@types/eslint':
     specifier: ^8.56.7
     version: 8.56.10
+  '@types/file-saver':
+    specifier: ^2.0.7
+    version: 2.0.7
   '@types/node-schedule':
     specifier: ^2.1.7
     version: 2.1.7
@@ -948,6 +954,10 @@ packages:
     resolution: {integrity: sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==}
     dev: true
 
+  /@types/file-saver@2.0.7:
+    resolution: {integrity: sha512-dNKVfHd/jk0SkR/exKGj2ggkB45MAkzvWCaqLUUgkyjITkGNzH8H+yUwr+BLJUBjZOe9w8X3wgmXhZDRg1ED6A==}
+    dev: true
+
   /@types/json-schema@7.0.15:
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
     dev: true
@@ -1783,6 +1793,10 @@ packages:
     dependencies:
       flat-cache: 4.0.1
     dev: true
+
+  /file-saver@2.0.5:
+    resolution: {integrity: sha512-P9bmyZ3h/PRG+Nzga+rbdI4OEpNDzAVyy74uVO9ATgzLK6VtAsYybF/+TOCvrc0MO793d6+42lLyZTw7/ArVzA==}
+    dev: false
 
   /file-uri-to-path@1.0.0:
     resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}

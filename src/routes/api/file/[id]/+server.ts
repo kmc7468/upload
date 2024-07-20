@@ -8,7 +8,6 @@ import type { RequestHandler } from "./$types";
 const idRegex = new RegExp(`^[${ID_CHARS}]{${ID_LENGTH}}$`);
 
 const requestSchema = z.object({
-  fileID: z.string().regex(idRegex),
   requiredType: z.string().nullable().optional(),
 });
 
@@ -24,16 +23,19 @@ const determineRequiredType = (requiredType: string | null | undefined) => {
   }
 }
 
-export const GET: RequestHandler = async ({ url, getClientAddress }) => {
+export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
+  const fileID = params.id;
+  if (!idRegex.test(fileID)) {
+    error(404);
+  }
+
   const parsedRequest = await requestSchema.safeParseAsync({
-    fileID: url.searchParams.get("id"),
     requiredType: url.searchParams.get("conv"),
   });
   if (!parsedRequest.success) {
     error(400);
   }
   const {
-    fileID,
     requiredType,
   } = parsedRequest.data;
 

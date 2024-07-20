@@ -11,14 +11,6 @@
   <title>Minchan's Upload</title>
 </svlete:head>
 
-<header>
-  <h1>Minchan's Upload</h1>
-  <aside><p>
-    GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
-    Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
-  </aside>
-</header>
-
 <main>
   <section>
     <h2>Upload</h2>
@@ -77,7 +69,6 @@
   }
   form {
     width: fit-content;
-    row-gap: 16px;
   }
   form section {
     background-color: #EEEEEE;

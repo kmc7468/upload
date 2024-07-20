@@ -205,13 +205,13 @@ export const synchronizeWithDatabase = async () => {
     return stat.isFile() ? entry : null;
   }));
 
-  const fileIdsInFS = new Set(filesInFS.filter(file => file !== null));
-  const fileIdsInDB = new Set(await getAllFileIDs());
+  const fileIDsInFS = new Set(filesInFS.filter(file => file !== null));
+  const fileIDsInDB = new Set(await getAllFileIDs());
 
-  await Promise.all(calcDifference(fileIdsInFS, fileIdsInDB).map(async fileID => {
+  await Promise.all(calcDifference(fileIDsInFS, fileIDsInDB).map(async fileID => {
     await fs.unlink(path.join(UPLOAD_DIR, fileID));
   }));
-  await Promise.all(calcDifference(fileIdsInDB, fileIdsInFS).map(async fileID => {
+  await Promise.all(calcDifference(fileIDsInDB, fileIDsInFS).map(async fileID => {
     await deleteFile(fileID);
   }));
 };

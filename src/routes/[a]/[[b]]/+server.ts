@@ -22,8 +22,7 @@ export const GET: RequestHandler = async ({ params, url, fetch }) => {
     }
   })();
 
-  const response = await fetch("/api/file/download?" + new URLSearchParams({
-    id: fileID,
+  const response = await fetch(`/api/file/${fileID}?` + new URLSearchParams({
     conv: requiredType || "",
   }).toString());
   if (!response.ok) {

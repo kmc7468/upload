@@ -1,4 +1,12 @@
 <div>
+  <header>
+    <h1>Minchan's Upload</h1>
+    <aside><p>
+      GitHub: <a href="https://github.com/kmc7468/upload">https://github.com/kmc7468/upload</a><br>
+      Contact: <a href="mailto:me@minchan.me">me@minchan.me</a>
+    </aside>
+  </header>
+
   <slot />
 </div>
 

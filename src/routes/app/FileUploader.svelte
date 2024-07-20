@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Writable } from "svelte/store";
-  import { generateSalt, deriveBitsUsingPBKDF2, decryptUsingAES256CBC, encryptUsingAES256CBC } from "$lib/cipher";
+  import { generateSalt, deriveBitsUsingPBKDF2, encryptUsingAES256CBC } from "$lib/cipher";
   import { MAX_FILE_SIZE, MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
   import UploadStatus from "./UploadStatus.svelte";
 
@@ -89,11 +89,15 @@
     });
     xhr.addEventListener("load", async () => {
       if (xhr.status === 200) {
-        // TODO: Fix me
-        const downloadURL = xhr.responseText.substring(0, xhr.responseText.length - 1); // 개행 제거
+        const fileID = xhr.responseText;
         const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
 
-        uploadStatus.updateDownloadURL(downloadURL, isImage);
+        if (isEncryption) {
+          uploadStatus.updateDownloadURL(`${window.location.origin}/app/file/${fileID}`, false);
+        } else {
+          uploadStatus.updateDownloadURL(`${window.location.origin}/${fileID}/${encodeURI(targetFile.name)}`, isImage);
+        }
+
         alert("The file has been uploaded successfully.");
       } else {
         uploadStatus.displayFailure();
@@ -131,11 +135,11 @@
 
     const formData = new FormData();
     formData.append("options", JSON.stringify({
-      name: targetFile.name + (isEncryption ? ".enc" : ""),
+      name: targetFile.name,
       contentType: fileType || "application/octet-stream",
 
       isDisposable,
-      isEncryption,
+      isEncrypted: isEncryption,
     }));
     formData.append("file", targetContent);
 
@@ -147,7 +151,14 @@
 {#if isEncryption}
   <label id="passphrase">
     Passphrase:&nbsp;
-    <input type="password" bind:value={passphrase} />
+    <input type="password" bind:value={passphrase} on:keydown={
+      (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          uploadFile();
+        }
+      }
+    } />
   </label>
 {/if}
 <label>

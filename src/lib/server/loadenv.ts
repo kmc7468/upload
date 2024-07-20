@@ -8,5 +8,6 @@ export const LOG_DIR = env.LOG_DIR || "logs";
 
 export const ID_CHARS = env.ID_CHARS || "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 export const ID_LENGTH = parseInt(env.ID_LENGTH || "6", 10);
+export const ID_REGEX = new RegExp(`^[${ID_CHARS}]{${ID_LENGTH}}$`);
 
 export const FILE_EXPIRY = parseInt(env.FILE_EXPIRY || "3600", 10) * 1000; // Default: 1 hour
