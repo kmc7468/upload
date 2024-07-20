@@ -5,6 +5,8 @@
   import { formatThroughput } from "$lib/utils";
   import type { PageData } from "./$types";
 
+  import "$lib/style.css";
+
   export let data: PageData;
 
   let downloadURL = "";
@@ -168,23 +170,25 @@
               } />
             </label>
             {#if passphrase !== ""}
-              <button id="download-decrypt" disabled={isDownloading} on:click={downloadAndDecryptFile}>
-                {#if downloadStatus === "" ||
-                     downloadStatus.startsWith("Downloading") ||
-                     downloadStatus.startsWith("Failed to download")}
-
-                  Download and Decrypt
-                {:else if downloadStatus.startsWith("Decrypting") ||
-                          downloadStatus.startsWith("Failed to decrypt")}
-
-                  Decrypt
-                {:else}
-                  Save as file
+              <div>
+                <button id="download-decrypt" disabled={isDownloading} on:click={downloadAndDecryptFile}>
+                  {#if downloadStatus === "" ||
+                       downloadStatus.startsWith("Downloading") ||
+                       downloadStatus.startsWith("Failed to download")}
+  
+                    Download and Decrypt
+                  {:else if downloadStatus.startsWith("Decrypting") ||
+                            downloadStatus.startsWith("Failed to decrypt")}
+  
+                    Decrypt
+                  {:else}
+                    Save as file
+                  {/if}
+                </button>
+                {#if downloadStatus !== ""}
+                  <p id="download-status">{downloadStatus}</p>
                 {/if}
-              </button>
-              {#if downloadStatus !== ""}
-                <p id="download-status">{downloadStatus}</p>
-              {/if}
+              </div>
             {/if}
           </form>
         {:else}
@@ -209,22 +213,12 @@
 </main>
 
 <style>
-  code {
-    background-color: #EEEEEE;
-    border-radius: 3px;
-    padding: 1px 3px;
-  }
   #download-section {
     width: fit-content;
   }
-  .rounded-box {
-    background-color: #EEEEEE;
-    border-radius: 10px;
-    box-sizing: border-box;
-    padding: 5px 10px;
-  }
   form p {
-    margin: 0;
+    margin-top: 0;
+    margin-bottom: 4px;
   }
   form label {
     align-items: center;
@@ -233,12 +227,19 @@
   form label input {
     flex-grow: 1;
   }
-  form #download-decrypt {
-    display: inline-block;
+  form div {
+    align-items: center;
+    display: flex;
+    flex-direction: row;
     margin-top: 16px;
   }
-  form #download-status {
+  #download-decrypt {
     display: inline-block;
+  }
+  #download-status {
+    display: inline-block;
+    margin-left: 8px;
+    margin-bottom: 0;
   }
   #download {
     word-break: break-all;

@@ -2,6 +2,8 @@
   import { writable } from "svelte/store";
   import FileUploader from "./FileUploader.svelte";
 
+  import "$lib/style.css";
+
   let isDisposable = false;
   let isEnabledEncryption = false;
   const isUploading = writable(false);
@@ -20,7 +22,7 @@
       <code hidden={!isDisposable}>curl --upload-file your_filename https://upload.minchan.me/d/your_filename</code>
     </p>
     <form>
-      <section id="options">
+      <section id="options" class="rounded-box">
         <p>Change below options <strong>before</strong> selecting a file, if you want to.</p>
         <label>
           <input type="checkbox" bind:checked={isDisposable} disabled={$isUploading} />
@@ -31,7 +33,7 @@
           Encrypt the file before uploading (E2EE)
         </label>
       </section>
-      <section>
+      <section class="rounded-box">
         <FileUploader
           isDisposable={isDisposable}
           isEnabledEncryption={isEnabledEncryption}
@@ -62,19 +64,8 @@
 </main>
 
 <style>
-  code {
-    background-color: #EEEEEE;
-    border-radius: 3px;
-    padding: 1px 3px;
-  }
   form {
     width: fit-content;
-  }
-  form section {
-    background-color: #EEEEEE;
-    border-radius: 10px;
-    box-sizing: border-box;
-    padding: 5px 10px;
   }
   #options {
     margin-bottom: 16px;
