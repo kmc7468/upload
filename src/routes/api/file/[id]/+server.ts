@@ -1,11 +1,9 @@
 import { error } from "@sveltejs/kit";
 import z from "zod";
 import { downloadFile } from "$lib/server/filesystem";
-import { ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
+import { ID_REGEX } from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
 import type { RequestHandler } from "./$types";
-
-const idRegex = new RegExp(`^[${ID_CHARS}]{${ID_LENGTH}}$`);
 
 const requestSchema = z.object({
   requiredType: z.string().nullable().optional(),
@@ -25,7 +23,7 @@ const determineRequiredType = (requiredType: string | null | undefined) => {
 
 export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
   const fileID = params.id;
-  if (!idRegex.test(fileID)) {
+  if (!ID_REGEX.test(fileID)) {
     error(404);
   }
 

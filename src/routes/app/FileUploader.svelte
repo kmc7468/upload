@@ -91,7 +91,7 @@
       $isUploading = true;
     });
     xhr.addEventListener("load", async () => {
-      if (xhr.status === 200) {
+      if (xhr.status === 201) {
         const fileID = xhr.responseText;
         const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
 

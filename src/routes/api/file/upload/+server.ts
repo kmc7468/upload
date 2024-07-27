@@ -17,7 +17,7 @@ const hash = (buffer: Buffer) => {
   return crypto.createHash("sha256").update(buffer).digest("hex");
 };
 
-export const POST: RequestHandler = async ({ request, getClientAddress }) => {
+export const POST: RequestHandler = async ({ request, url, getClientAddress }) => {
   const form = await request.formData();
 
   const options = form.get("options") as string | null;
@@ -56,5 +56,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   logger.info(
     `File "${fileName}" uploaded as "${fileID}" with hash "${fileHash}" by "${getClientAddress()}" (${file.size} bytes)`);
 
-  return text(fileID, { headers: { "Content-Type": "text/plain" } });
+  return text(fileID, {
+    headers: {
+      "Content-Type": "text/plain",
+      "Location": `${url.origin}/${fileID}/${encodeURIComponent(fileName)}`,
+    },
+    status: 201,
+  });
 };

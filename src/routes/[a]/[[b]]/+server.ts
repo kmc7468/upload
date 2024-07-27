@@ -1,14 +1,12 @@
 
 import { error, text } from "@sveltejs/kit";
-import { ID_CHARS, ID_LENGTH } from "$lib/server/loadenv";
+import { ID_REGEX } from "$lib/server/loadenv";
 import type { RequestHandler } from "./$types";
-
-const idRegex = new RegExp(`^[${ID_CHARS}]{${ID_LENGTH}}$`);
 
 export const GET: RequestHandler = async ({ params, url, fetch }) => {
   const fileID = params.a;
   const fileName = params.b;
-  if (!idRegex.test(fileID)) {
+  if (!ID_REGEX.test(fileID)) {
     error(404);
   }
 
@@ -33,7 +31,7 @@ export const GET: RequestHandler = async ({ params, url, fetch }) => {
   const file = formData.get("file") as File;
   return new Response(file, {
     headers: {
-      "Content-Disposition": (fileName ? `attachment; filename="${encodeURIComponent(fileName)}"` : "inline"),
+      "Content-Disposition": (fileName ? `attachment; filename*="${encodeURIComponent(fileName)}"` : "inline"),
       "Content-Length": file.size.toString(),
       "Content-Type": "", // Let the browser infer it
     }
@@ -73,15 +71,19 @@ export const POST: RequestHandler = async ({ request, params, url, fetch }) => {
   }
 
   const fileID = await response.text();
-
-  if (isEncrypted) {
-    return text(`curl -s ${url.origin}/${fileID} | openssl enc -d -aes-256-cbc -pbkdf2 > "${fileName}"\n`,
-      { headers: { "Content-Type": "text/plain" } });
-  } else {
-    return text(
-      `curl -O "${url.origin}/${fileID}/${encodeURIComponent(fileName)}"\n`,
-      { headers: { "Content-Type": "text/plain" } });
-  }
+  const downloadURL = response.headers.get("Location")!;
+  return text(
+    isEncrypted ?
+      `curl -s ${url.origin}/${fileID} | openssl enc -d -aes-256-cbc -pbkdf2 > "${fileName}"\n` :
+      `curl -O ${downloadURL}\n`,
+    {
+      headers: {
+        "Content-Type": "text/plain",
+        "Location": downloadURL,
+      },
+      status: 201,
+    }
+  );
 };
 
 export const PUT = POST;
