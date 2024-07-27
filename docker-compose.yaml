@@ -17,6 +17,7 @@ services:
       - PUBLIC_MAX_CONVERTIBLE_IMAGE_SIZE=${MAX_CONVERTIBLE_IMAGE_SIZE:-}
       - ADDRESS_HEADER=${TRUST_PROXY:+X-Forwarded-For}
       - XFF_DEPTH=${TRUST_PROXY:-}
+      - ORIGIN
     ports:
       - ${PORT:-80}:3000
 
