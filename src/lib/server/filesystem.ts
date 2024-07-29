@@ -205,7 +205,7 @@ export const synchronizeWithDatabase = async () => {
     return stat.isFile() ? entry : null;
   }));
 
-  const fileIDsInFS = new Set(filesInFS.filter(file => file !== null));
+  const fileIDsInFS = new Set(filesInFS.filter((file): file is string => file !== null));
   const fileIDsInDB = new Set(await getAllFileIDs());
 
   await Promise.all(calcDifference(fileIDsInFS, fileIDsInDB).map(async fileID => {
