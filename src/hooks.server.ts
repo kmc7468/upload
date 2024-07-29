@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import schedule from "node-schedule";
 import * as constants from "$lib/constants";
-import { initializeDatabase } from "$lib/server/db/kysely";
+import { migrate as migrateDatabase } from "$lib/server/db/kysely";
 import { unlinkExpiredFiles, synchronizeWithDatabase } from "$lib/server/filesystem";
 import * as loadenv from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
@@ -37,7 +37,7 @@ const initializeServer = async () => {
   mkdirIfNotExist(loadenv.LOG_DIR);
 
   // 데이터베이스 초기화
-  await initializeDatabase();
+  await migrateDatabase();
   await synchronizeWithDatabase();
 
   // Cron Job 등록

@@ -2,14 +2,14 @@ import db from "./kysely";
 import type { NewFile } from "./schema/file";
 
 export const createFile = async (file: NewFile) => {
-  return await db!
+  return await db
     .insertInto("file")
     .values(file)
     .executeTakeFirstOrThrow();
 };
 
 export const findFile = async (id: string) => {
-  return await db!
+  return await db
     .selectFrom("file")
     .selectAll()
     .where("id", "=", id)
@@ -18,7 +18,7 @@ export const findFile = async (id: string) => {
 }
 
 export const findExpiredFiles = async () => {
-  return await db!
+  return await db
     .selectFrom("file")
     .select("id")
     .where("expireAt", "<=", Date.now())
@@ -26,7 +26,7 @@ export const findExpiredFiles = async () => {
 }
 
 export const getAllFileIDs = async () => {
-  const result = await db!
+  const result = await db
     .selectFrom("file")
     .select("id")
     .execute();
@@ -34,7 +34,7 @@ export const getAllFileIDs = async () => {
 }
 
 export const deleteFile = async (id: string) => {
-  return await db!
+  return await db
     .deleteFrom("file")
     .where("id", "=", id)
     .executeTakeFirstOrThrow();
