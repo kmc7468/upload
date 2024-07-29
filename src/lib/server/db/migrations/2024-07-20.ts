@@ -3,6 +3,7 @@ import { Kysely } from "kysely";
 export async function up(db: Kysely<any>) {
   await db.schema
     .createTable("file")
+    .ifNotExists() // For compatibility
     .addColumn("id", "text", cb => cb.primaryKey())
     .addColumn("uploadedAt", "integer", cb => cb.notNull())
     .addColumn("expireAt", "integer", cb => cb.notNull())
