@@ -1,22 +1,23 @@
 import SQLite3 from "better-sqlite3";
 import { Kysely, SqliteDialect, Migrator } from "kysely";
 import path from "path";
+import { building } from "$app/environment";
 import { DATA_DIR } from "../loadenv";
 import logger from "../logger";
 import type Schema from "./schema";
 import migrations from "./migrations";
 
-const dialect = new SqliteDialect({
+const dialect = building ? undefined : new SqliteDialect({
   database: new SQLite3(path.join(DATA_DIR, "database.sqlite")),
 });
 
-const db = new Kysely<Schema>({ dialect });
+const db = dialect && new Kysely<Schema>({ dialect });
 
 export async function migrate() {
   logger.info("Database migration started...");
 
   const migrator = new Migrator({
-    db,
+    db: db!,
     provider: {
       async getMigrations() {
         return migrations;
