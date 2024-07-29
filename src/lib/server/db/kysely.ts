@@ -13,13 +13,13 @@ const dialect = building ? undefined : new SqliteDialect({
 
 const db = dialect && new Kysely<Schema>({ dialect });
 
-export async function migrate() {
+export const migrate = async () => {
   logger.info("Database migration started...");
 
   const migrator = new Migrator({
     db: db!,
     provider: {
-      async getMigrations() {
+      getMigrations: async () => {
         return migrations;
       }
     }
@@ -40,6 +40,6 @@ export async function migrate() {
   } else {
     logger.info("Database migration completed.");
   }
-}
+};
 
 export default db;

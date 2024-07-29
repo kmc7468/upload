@@ -1,6 +1,6 @@
 import { Kysely } from "kysely";
 
-export async function up(db: Kysely<any>) {
+export const up = async (db: Kysely<any>) => {
   await db.schema
     .createTable("file")
     .ifNotExists() // For compatibility
@@ -12,8 +12,8 @@ export async function up(db: Kysely<any>) {
     .addColumn("isDisposable", "integer", cb => cb.notNull())
     .addColumn("isEncrypted", "integer", cb => cb.notNull())
     .execute();
-}
+};
 
-export async function down(db: Kysely<any>) {
+export const down = async (db: Kysely<any>) => {
   await db.schema.dropTable("file").execute();
-}
+};

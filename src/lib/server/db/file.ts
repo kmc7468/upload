@@ -15,7 +15,7 @@ export const findFile = async (id: string) => {
     .where("id", "=", id)
     .limit(1)
     .executeTakeFirst();
-}
+};
 
 export const findExpiredFiles = async () => {
   return await db!
@@ -23,7 +23,7 @@ export const findExpiredFiles = async () => {
     .select("id")
     .where("expireAt", "<=", Date.now())
     .execute();
-}
+};
 
 export const getAllFileIDs = async () => {
   const result = await db!
@@ -31,11 +31,11 @@ export const getAllFileIDs = async () => {
     .select("id")
     .execute();
   return result.map(row => row.id);
-}
+};
 
 export const deleteFile = async (id: string) => {
   return await db!
     .deleteFrom("file")
     .where("id", "=", id)
     .executeTakeFirstOrThrow();
-}
+};
