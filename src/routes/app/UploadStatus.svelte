@@ -1,4 +1,5 @@
 <script lang="ts">
+  import QRCode from "qrcode";
   import { formatThroughput } from "$lib/utils";
 
   let status: "encrypting" | "uploading" | "uploaded" | "failed";
@@ -36,8 +37,18 @@
     Download:
     <a id="download" href={downloadURL}><b>{decodeURI(downloadURL)}</b></a>
     {#if isImage}
-      (convert to <a href={`${downloadURL}?jpg`}>JPEG</a> or <a href={`${downloadURL}?png`}>PNG</a>)
+      <details>
+        <summary>Utility</summary>
+        <button on:click={() => downloadURL += "?jpg"}>Convert to JPEG</button>
+        <button on:click={() => downloadURL += "?png"}>Convert to PNG</button>
+      </details>
     {/if}
+    {#await QRCode.toDataURL(downloadURL, { margin: 2, width: 150 }) then qrcode}
+      <details>
+        <summary>QR code</summary>
+        <img src={qrcode} alt="QR code" />
+      </details>
+    {/await}
   </p>
 {:else if status === "failed"}
   <p>Failed to upload the file!</p>
@@ -49,5 +60,8 @@
   }
   #download {
     word-break: break-all;
+  }
+  details {
+    padding: 0 20px;
   }
 </style>
