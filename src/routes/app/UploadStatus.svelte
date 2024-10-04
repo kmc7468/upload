@@ -1,5 +1,6 @@
 <script lang="ts">
   import QRCode from "qrcode";
+  import { goto } from "$app/navigation";
   import { formatThroughput } from "$lib/utils";
 
   let status: "encrypting" | "uploading" | "uploaded" | "failed";
@@ -39,8 +40,8 @@
     {#if isImage}
       <details>
         <summary>Utility</summary>
-        <button on:click={() => downloadURL += "?jpg"}>Convert to JPEG</button>
-        <button on:click={() => downloadURL += "?png"}>Convert to PNG</button>
+        <button on:click={() => goto(`${downloadURL}?jpg`)}>Convert to JPEG</button>
+        <button on:click={() => goto(`${downloadURL}?png`)}>Convert to PNG</button>
       </details>
     {/if}
     {#await QRCode.toDataURL(downloadURL, { margin: 2, width: 150 }) then qrcode}
