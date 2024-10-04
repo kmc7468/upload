@@ -49,10 +49,12 @@
           <input type="checkbox" bind:checked={isDisposable} disabled={$isUploading} />
           Allow only one download
         </label><br>
-        <label>
-          <input type="checkbox" bind:checked={isEnabledEncryption} disabled={$isUploading} />
-          Encrypt the file before uploading (E2EE)
-        </label>
+        {#if browser && window.crypto.subtle}
+          <label>
+            <input type="checkbox" bind:checked={isEnabledEncryption} disabled={$isUploading} />
+            Encrypt the file before uploading (E2EE)
+          </label>
+        {/if}
       </section>
       <section class="rounded-box">
         <FileUploader
