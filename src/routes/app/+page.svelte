@@ -72,7 +72,7 @@
       However, they may be deleted earlier depending on the server's situation.
     </p>
     <p>
-      The server has 4 GiB of storage space available.
+      The server has 16 GiB of storage space available.
       In case of high user traffic, it may not be possible to upload files.
     </p>
     <p>

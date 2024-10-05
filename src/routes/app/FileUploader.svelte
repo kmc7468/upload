@@ -96,9 +96,9 @@
         const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
 
         if (isEnabledEncryption) {
-          uploadStatus.updateDownloadURL(`${window.location.origin}/app/file/${fileID}`, false);
+          uploadStatus.updateDownloadURL(`${window.location.origin}/app/file/${fileID}`, passphrase!.value, false);
         } else {
-          uploadStatus.updateDownloadURL(`${window.location.origin}/${fileID}/${encodeURIComponent(targetFile.name)}`, isImage);
+          uploadStatus.updateDownloadURL(`${window.location.origin}/${fileID}/${encodeURIComponent(targetFile.name)}`, null, isImage);
         }
 
         alert("The file has been uploaded successfully.");

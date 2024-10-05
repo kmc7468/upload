@@ -1,7 +1,8 @@
 <script lang="ts">
   import FileSaver from "file-saver";
+  import { onMount, tick } from "svelte";
   import { browser } from "$app/environment";
-  import { deriveBitsUsingPBKDF2, decryptUsingAES256CBC } from "$lib/cipher";
+  import { decodeStringFromBase64, deriveBitsUsingPBKDF2, decryptUsingAES256CBC } from "$lib/cipher";
   import { formatThroughput } from "$lib/utils";
   import type { PageData } from "./$types";
 
@@ -116,6 +117,17 @@
 
     FileSaver.saveAs(file, data.file!.name);
   };
+
+  onMount(async () => {
+    if (!data.file?.isEncrypted) return;
+
+    passphrase = decodeStringFromBase64(window.location.hash.slice(1));
+
+    if (!passphrase) return;
+
+    await tick();
+    await downloadAndDecryptFile();
+  });
 </script>
 
 <svlete:head>

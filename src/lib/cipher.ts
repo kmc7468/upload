@@ -49,3 +49,14 @@ export const decryptUsingAES256CBC = async (data: ArrayBuffer, key: ArrayBuffer,
     data,
   );
 };
+
+export const encodeStringInBase64 = (data: string) => {
+  const utf8Data = new TextEncoder().encode(data);
+  return btoa(String.fromCharCode(...utf8Data));
+}
+
+export const decodeStringFromBase64 = (data: string) => {
+  const utf8Data = atob(data);
+  const utf8DataArray = new Uint8Array([...utf8Data].map(char => char.charCodeAt(0)));
+  return new TextDecoder().decode(utf8DataArray);
+}
