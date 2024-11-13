@@ -5,8 +5,8 @@
 
   import "$lib/style.css";
 
-  let isDisposable = false;
-  let isEnabledEncryption = false;
+  let isDisposable = $state(false);
+  let isEnabledEncryption = $state(false);
   const isUploading = writable(false);
 </script>
 

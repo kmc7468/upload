@@ -4,20 +4,17 @@
   import { MAX_FILE_SIZE, MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
   import UploadStatus from "./UploadStatus.svelte";
 
-  export let isDisposable: boolean;
-  export let isEnabledEncryption: boolean;
-  export let isUploading: Writable<boolean>;
-
-  let passphrase: HTMLInputElement | undefined;
-  let file: HTMLInputElement | undefined;
-  let uploadStatus: UploadStatus;
-
-  $: if (passphrase) {
-    passphrase.disabled = $isUploading;
+  interface Props {
+    isDisposable: boolean;
+    isEnabledEncryption: boolean;
+    isUploading: Writable<boolean>;
   }
-  $: if (file) {
-    file.disabled = $isUploading;
-  }
+
+  let { isDisposable, isEnabledEncryption, isUploading }: Props = $props();
+
+  let passphrase: HTMLInputElement | undefined = $state();
+  let file: HTMLInputElement;
+  let uploadStatus: ReturnType<typeof UploadStatus>;
 
   const determineFileType = (file: File) => {
     if (file.type) {
@@ -51,7 +48,7 @@
   };
 
   const uploadFile = async () => {
-    const targetFile = file!.files?.[0];
+    const targetFile = file.files?.[0];
     if (!targetFile) {
       return;
     } else if (targetFile.size > MAX_FILE_SIZE) {
@@ -154,19 +151,18 @@
 {#if isEnabledEncryption}
   <label id="passphrase">
     Passphrase:&nbsp;
-    <input type="password" bind:this={passphrase} on:keydown={
-      async event => {
+    <input type="password" disabled={$isUploading}
+      bind:this={passphrase} onkeydown={async event => {
         if (event.key === "Enter") {
           event.preventDefault();
           await uploadFile();
         }
-      }
-    } />
+      }} />
   </label>
 {/if}
 <label>
   Upload:&nbsp;
-  <input type="file" bind:this={file} on:change={uploadFile} />
+  <input type="file" bind:this={file} disabled={$isUploading} onchange={uploadFile} />
 </label>
 
 <UploadStatus bind:this={uploadStatus} />

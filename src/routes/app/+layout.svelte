@@ -1,3 +1,7 @@
+<script lang="ts">
+  let { children } = $props();
+</script>
+
 <div>
   <header>
     <h1>Minchan's Upload</h1>
@@ -7,7 +11,7 @@
     </aside>
   </header>
 
-  <slot />
+  {@render children?.()}
 </div>
 
 <style>

@@ -4,24 +4,18 @@
   import { browser } from "$app/environment";
   import { decodeStringFromBase64, deriveBitsUsingPBKDF2, decryptUsingAES256CBC } from "$lib/cipher";
   import { formatThroughput } from "$lib/utils";
-  import type { PageData } from "./$types";
 
   import "$lib/style.css";
 
-  export let data: PageData;
+  let { data } = $props();
 
-  let downloadURL = "";
-  const isImage = data.file?.contentType.startsWith("image/") || false;
+  const isImage = data.file?.contentType.startsWith("image/") ?? false;
 
-  if (browser && data.file) {
-    downloadURL = `${window.location.origin}/${data.file.id}/${encodeURIComponent(data.file.name)}`;
-  }
+  let downloadURL = $state("");
+  let downloadStatus = $state("");
+  let passphrase = $state("");
 
-  let passphrase = "";
-  let isDownloading = false;
-  let downloadStatus = "";
-
-  const downloadFile = () => {
+  const downloadEncryptedFile = () => {
     return new Promise<ArrayBuffer>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.responseType = "arraybuffer";
@@ -63,55 +57,46 @@
   };
 
   const decryptFile = async (encryptedFile: ArrayBuffer) => {
-    try {
-      downloadStatus = "Decrypting the file...";
+    downloadStatus = "Decrypting the file...";
 
-      const salt = new Uint8Array(encryptedFile.slice(8, 16));
-      const key = await deriveBitsUsingPBKDF2(passphrase, salt, 256 + 128);
-      const file = await decryptUsingAES256CBC(encryptedFile.slice(16), key.slice(0, 32), key.slice(32, 48));
+    const salt = new Uint8Array(encryptedFile.slice(8, 16));
+    const key = await deriveBitsUsingPBKDF2(passphrase, salt, 256 + 128);
+    const file = await decryptUsingAES256CBC(encryptedFile.slice(16), key.slice(0, 32), key.slice(32, 48));
 
-      downloadStatus = "Succeeded in decrypting the file!";
-      return file;
-    } catch (error) {
-      console.log(error);
-      downloadStatus = "Failed to decrypt the file!";
-      throw error;
-    }
+    downloadStatus = "Succeeded in decrypting the file!";
+    return file;
   };
 
+  let isDownloading = $state(false);
   let encryptedFile: ArrayBuffer | undefined;
-  let file: Blob | undefined;
+  let file: Blob | undefined = $state();
 
   const downloadAndDecryptFile = async () => {
     if (!encryptedFile) {
       try {
         isDownloading = true;
-
-        encryptedFile = await downloadFile();
+        encryptedFile = await downloadEncryptedFile();
       } catch {
-        isDownloading = false;
         downloadStatus = "Failed to download the encrypted file!";
 
         alert("An error occurred while downloading the encrypted file. The file may be expired.");
         return;
+      } finally {
+        isDownloading = false;
       }
     }
 
     if (!file) {
       try {
         isDownloading = true;
-        downloadStatus =  "Decrypting the file...";
-
         file = new Blob([await decryptFile(encryptedFile!)]);
-
-        isDownloading = false;
-        downloadStatus = "Succeeded in decrypting the file!";
       } catch {
-        isDownloading = false;
         downloadStatus = "Failed to decrypt the file!";
 
         alert("An error occurred while decrypting the file. Your passphrase may be incorrect.");
         return;
+      } finally {
+        isDownloading = false;
       }
     }
 
@@ -119,7 +104,11 @@
   };
 
   onMount(async () => {
-    if (!data.file?.isEncrypted) return;
+    if (!data.file) return;
+
+    downloadURL = `${window.location.origin}/${data.file.id}/${encodeURIComponent(data.file.name)}`;
+
+    if (!data.file.isEncrypted) return;
 
     passphrase = decodeStringFromBase64(window.location.hash.slice(1));
 
@@ -147,15 +136,15 @@
       <p>File not found!</p>
     {:else}
       {#if browser}
-      <p>
-        You may use <code>curl</code> to download like this:
-        {#if data.file.isEncrypted}
-          <code>curl -s {window.location.origin}/{data.file.id} | openssl enc -d -aes-256-cbc -pbkdf2 &gt; "{data.file.name}"</code>
-        {:else}
+        <p>
           You may use <code>curl</code> to download like this:
-          <code>curl -O "{window.location.origin}/{data.file.id}/{data.file.name}"</code>
-        {/if}
-      </p>
+          {#if data.file.isEncrypted}
+            <code>curl -s {window.location.origin}/{data.file.id} | openssl enc -d -aes-256-cbc -pbkdf2 &gt; "{data.file.name}"</code>
+          {:else}
+            You may use <code>curl</code> to download like this:
+            <code>curl -O "{window.location.origin}/{data.file.id}/{data.file.name}"</code>
+          {/if}
+        </p>
       {/if}
       <section id="download-section">
         <p class="rounded-box">
@@ -172,18 +161,16 @@
             </p>
             <label>
               Passphrase:&nbsp;
-              <input type="password" disabled={isDownloading || !!file} bind:value={passphrase} on:keydown={
-                async event => {
+              <input type="password" disabled={isDownloading || !!file} bind:value={passphrase} onkeydown={async event => {
                   if (event.key === "Enter") {
                     event.preventDefault();
                     await downloadAndDecryptFile();
                   }
-                }
-              } />
+                }} />
             </label>
             {#if passphrase !== ""}
               <div>
-                <button id="download-decrypt" disabled={isDownloading} on:click={downloadAndDecryptFile}>
+                <button id="download-decrypt" disabled={isDownloading} onclick={downloadAndDecryptFile}>
                   {#if downloadStatus === "" ||
                        downloadStatus.startsWith("Downloading") ||
                        downloadStatus.startsWith("Failed to download")}
@@ -203,7 +190,7 @@
               </div>
             {/if}
           </form>
-        {:else}
+        {:else if downloadURL !== ""}
           <p class="rounded-box">
             Download URL:
             <a id="download" href={downloadURL}><b>{decodeURI(downloadURL)}</b></a>
