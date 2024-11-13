@@ -67,7 +67,7 @@
   <section>
     <h2>Notes</h2>
     <p>
-      You can upload files up to <strong>2 GiB</strong> in size.
+      You can upload files up to <strong>1 GiB</strong> in size.
       Uploaded files are automatically deleted after <strong>24 hours.</strong>
       However, they may be deleted earlier depending on the server's situation.
     </p>

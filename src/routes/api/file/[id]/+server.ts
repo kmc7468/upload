@@ -38,6 +38,10 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
   } = parsedRequest.data;
 
   const file = await downloadFile(fileID, determineRequiredType(requiredType));
+  if (!file) {
+    logger.info(`File "${fileID}" not found for download request from "${getClientAddress()}"`);
+    error(404);
+  }
 
   logger.info(`File "${fileID}" downloaded by "${getClientAddress()}"`);
 

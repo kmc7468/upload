@@ -165,7 +165,7 @@ const createReadStreamAndUnlink = (path: string, unlink: boolean) => {
 export const downloadFile = async (fileID: string, requiredType?: FileType) => {
   const file = await findFile(fileID);
   if (!file) {
-    error(404);
+    return null;
   }
 
   const isEncrypted = !!file.isEncrypted;
