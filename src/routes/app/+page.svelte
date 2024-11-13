@@ -67,8 +67,8 @@
   <section>
     <h2>Notes</h2>
     <p>
-      You can upload files up to <strong>4 GiB</strong> in size.
-      Uploaded files are automatically deleted after <strong>1 hour.</strong>
+      You can upload files up to <strong>2 GiB</strong> in size.
+      Uploaded files are automatically deleted after <strong>24 hours.</strong>
       However, they may be deleted earlier depending on the server's situation.
     </p>
     <p>
@@ -80,7 +80,7 @@
       the name, size, hash of the uploaded file, and your IP address.
     </p>
     <p>
-      You can download files with just a 6-letters ID assigned to each file.
+      You can download files with just a 5-letters ID assigned to each file.
       <strong>Do not upload illegal or important files!</strong>
     </p>
   </section>
