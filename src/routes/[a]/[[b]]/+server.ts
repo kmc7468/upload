@@ -27,13 +27,13 @@ export const GET: RequestHandler = async ({ params, url, fetch }) => {
     error(response.status);
   }
 
-  const formData = await response.formData();
-  const file = formData.get("file") as File;
-  return new Response(file, {
+  return new Response(response.body, {
     headers: {
-      "Content-Disposition": (fileName ? `attachment; filename*="${encodeURIComponent(fileName)}"` : "inline"),
-      "Content-Length": file.size.toString(),
+      "Content-Disposition": fileName
+        ? `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
+        : "inline",
       "Content-Type": "", // Let the browser infer it
+      "Content-Length": response.headers.get("Content-Length")!,
     }
   });
 };

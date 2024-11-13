@@ -41,13 +41,12 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
 
   logger.info(`File "${fileID}" downloaded by "${getClientAddress()}"`);
 
-  const formData = new FormData();
-  formData.append("options", JSON.stringify({
-    name: file.name,
-    contentType: file.contentType,
-    isEncrypted: file.isEncrypted,
-  }));
-  formData.append("file", new Blob([file.content]), file.name);
-
-  return new Response(formData);
+  return new Response(file.content, {
+    headers: {
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+      "Content-Type": file.contentType,
+      "Content-Length": file.contentLength.toString(),
+      "X-Content-Encryption": file.isEncrypted.toString(),
+    }
+  });
 };

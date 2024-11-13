@@ -1,5 +1,5 @@
 import { error } from "@sveltejs/kit";
-import { existsSync } from "fs";
+import { createReadStream, existsSync, ReadStream } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
@@ -139,6 +139,29 @@ const readAndConvertFile = async (fileID: string, isDisposable: boolean, require
   };
 };
 
+const convertToReadableStream = (readStream: ReadStream) => {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      readStream.on("data", (chunk) => controller.enqueue(new Uint8Array(chunk as Buffer)));
+      readStream.on("end", () => controller.close());
+      readStream.on("error", (error) => controller.error(error));
+    },
+    cancel() {
+      readStream.destroy();
+    },
+  });
+};
+
+const createReadStreamAndUnlink = (path: string, unlink: boolean) => {
+  const stream = createReadStream(path);
+  stream.on('end', async () => {
+    if (unlink) {
+      await fs.unlink(path);
+    }
+  });
+  return convertToReadableStream(stream);
+};
+
 export const downloadFile = async (fileID: string, requiredType?: FileType) => {
   const file = await findFile(fileID);
   if (!file) {
@@ -158,8 +181,9 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
   if (requiredType === undefined) {
     return {
       name: file.name,
-      content: await readAndUnlinkFile(path.join(UPLOAD_DIR, fileID), isDisposable),
+      content: createReadStreamAndUnlink(path.join(UPLOAD_DIR, fileID), isDisposable),
       contentType: file.contentType,
+      contentLength: (await fs.stat(path.join(UPLOAD_DIR, fileID))).size,
 
       isEncrypted,
     };
@@ -169,6 +193,7 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
       name: file.name,
       content: convertedFile.content,
       contentType: convertedFile.contentType,
+      contentLength: convertedFile.content.byteLength,
 
       isEncrypted,
     }
