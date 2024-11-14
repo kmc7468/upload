@@ -32,7 +32,6 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
   const { fileID, fileHash } = await uploadFile(request.body, {
     name: decodeURIComponent(fileName),
     contentType,
-    contentLength,
 
     isDisposable,
     isEncrypted,

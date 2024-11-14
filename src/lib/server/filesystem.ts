@@ -26,7 +26,6 @@ const convertToMIMEType = (type: FileType) => {
 interface FileAttributes {
   name: string,
   contentType: string,
-  contentLength: number,
 
   isDisposable: boolean,
   isEncrypted: boolean,
@@ -69,9 +68,6 @@ const convertToWritableStream = (writeStream: WriteStream) => {
         });
       });
     },
-    abort(reason) {
-      writeStream.destroy(reason);
-    },
   });
 };
 
@@ -90,22 +86,10 @@ export const uploadFile = async (file: ReadableStream<Uint8Array>, attributes: F
   const now = Date.now();
 
   try {
-    let bytesReceived = 0;
     const hashStream = new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
-        bytesReceived += chunk.byteLength;
-        if (bytesReceived > attributes.contentLength) {
-          controller.error(new Error("Received more data than expected"));
-          return;
-        }
-
         fileHash.update(chunk);
         controller.enqueue(chunk);
-      },
-      flush(controller) {
-        if (bytesReceived < attributes.contentLength) {
-          controller.error(new Error("Received less data than expected"));
-        }
       }
     });
     const fileStream = createWriteStream(filePath, { mode: 0o600 });
