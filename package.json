@@ -17,8 +17,7 @@
     "node-gyp": "^10.2.0",
     "node-schedule": "^2.1.1",
     "sharp": "^0.33.5",
-    "winston": "^3.17.0",
-    "zod": "^3.23.8"
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.9",

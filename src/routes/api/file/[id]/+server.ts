@@ -1,15 +1,9 @@
 import { error } from "@sveltejs/kit";
-import z from "zod";
-import { downloadFile } from "$lib/server/filesystem";
 import { ID_REGEX } from "$lib/server/loadenv";
-import logger from "$lib/server/logger";
+import { fileDownloadHandler } from "$lib/server/services/files";
 import type { RequestHandler } from "./$types";
 
-const requestSchema = z.object({
-  requiredType: z.string().nullable().optional(),
-});
-
-const determineRequiredType = (requiredType: string | null | undefined) => {
+const determineRequiredType = (requiredType: string | null) => {
   switch (requiredType) {
     case "jpeg":
     case "png":
@@ -27,23 +21,12 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
     error(404);
   }
 
-  const parsedRequest = await requestSchema.safeParseAsync({
-    requiredType: url.searchParams.get("conv"),
+  const file = await fileDownloadHandler({
+    fileID,
+    requiredType: determineRequiredType(url.searchParams.get("conv")),
+
+    clientAddress: getClientAddress(),
   });
-  if (!parsedRequest.success) {
-    error(400);
-  }
-  const {
-    requiredType,
-  } = parsedRequest.data;
-
-  const file = await downloadFile(fileID, determineRequiredType(requiredType));
-  if (!file) {
-    logger.info(`File "${fileID}" not found for download request from "${getClientAddress()}"`);
-    error(404);
-  }
-
-  logger.info(`File "${fileID}" downloaded by "${getClientAddress()}"`);
 
   return new Response(file.content, {
     headers: {

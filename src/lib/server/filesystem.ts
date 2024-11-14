@@ -1,5 +1,6 @@
 import { error } from "@sveltejs/kit";
-import { createReadStream, existsSync, ReadStream } from "fs";
+import crypto from "crypto";
+import { createReadStream, createWriteStream, existsSync, ReadStream, WriteStream } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
@@ -8,7 +9,7 @@ import { createFile, findFile, findExpiredFiles, getAllFileIDs, deleteFile } fro
 import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "./loadenv";
 
 type ImageType = "jpeg" | "png";
-type FileType = ImageType;
+export type FileType = ImageType;
 
 const imageTypes = ["jpeg", "png"] satisfies ImageType[];
 const fileTypes = ([] as FileType[]).concat(imageTypes);
@@ -43,6 +44,33 @@ const generateUniqueID = () => {
   }
 };
 
+const convertToWritableStream = (writeStream: WriteStream) => {
+  return new WritableStream<Uint8Array>({
+    write(chunk) {
+      return new Promise((resolve, reject) => {
+        writeStream.write(chunk, (error) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      });
+    },
+    close() {
+      return new Promise((resolve, reject) => {
+        writeStream.end((error: any) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      });
+    },
+  });
+};
+
 const determineContentType = (type: string) => {
   if (type.startsWith("message/") || type.startsWith("multipart/")) {
     return "application/octet-stream";
@@ -51,11 +79,27 @@ const determineContentType = (type: string) => {
   }
 };
 
-export const uploadFile = async (file: Buffer, attributes: FileAttributes) => {
+export const uploadFile = async (file: ReadableStream<Uint8Array>, attributes: FileAttributes) => {
   const fileID = generateUniqueID();
+  const filePath = path.join(UPLOAD_DIR, fileID);
+  const fileHash = crypto.createHash("sha256");
   const now = Date.now();
 
-  await fs.writeFile(path.join(UPLOAD_DIR, fileID), file, { mode: 0o600 });
+  try {
+    const hashStream = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        fileHash.update(chunk);
+        controller.enqueue(chunk);
+      }
+    });
+    const fileStream = createWriteStream(filePath, { mode: 0o600 });
+
+    await file.pipeThrough(hashStream).pipeTo(convertToWritableStream(fileStream));
+  } catch {
+    await fs.unlink(filePath);
+    error(400);
+  }
+
   await createFile({
     id: fileID,
     uploadedAt: now,
@@ -68,7 +112,7 @@ export const uploadFile = async (file: Buffer, attributes: FileAttributes) => {
     isEncrypted: attributes.isEncrypted ? 1 : 0,
   });
 
-  return fileID;
+  return { fileID, fileHash: fileHash.digest("hex") };
 };
 
 const readFileIfExist = async (path: string) => {
