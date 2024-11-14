@@ -133,18 +133,14 @@
       uploadStatus.updateUploadProgress(percent, throughput);
     });
 
-    const formData = new FormData();
-    formData.append("options", JSON.stringify({
-      name: targetFile.name,
-      contentType: fileType || "application/octet-stream",
-
-      isDisposable,
-      isEncrypted: isEnabledEncryption,
-    }));
-    formData.append("file", targetContent);
-
     xhr.open("POST", "/api/file/upload");
-    xhr.send(formData);
+  
+    xhr.setRequestHeader("Content-Type", fileType || "application/octet-stream");
+    xhr.setRequestHeader("X-Content-Name", encodeURIComponent(targetFile.name));
+    xhr.setRequestHeader("X-Content-Disposable", isDisposable.toString());
+    xhr.setRequestHeader("X-Content-Encryption", isEnabledEncryption.toString());
+
+    xhr.send(targetContent);
   };
 </script>
 

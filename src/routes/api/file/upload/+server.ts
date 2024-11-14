@@ -1,60 +1,45 @@
 import { error, text } from "@sveltejs/kit";
-import crypto from "crypto";
-import z from "zod";
 import { MAX_FILE_SIZE } from "$lib/constants";
 import { uploadFile } from "$lib/server/filesystem";
 import logger from "$lib/server/logger";
 import type { RequestHandler } from "./$types";
 
-const optionsSchema = z.object({
-  name: z.string(),
-  contentType: z.string().nullable().optional(),
-  isDisposable: z.boolean().nullable().optional(),
-  isEncrypted: z.boolean().nullable().optional(),
-});
-
-const hash = (buffer: Buffer) => {
-  return crypto.createHash("sha256").update(buffer).digest("hex");
-};
-
 export const POST: RequestHandler = async ({ request, url, getClientAddress }) => {
-  const form = await request.formData();
+  const contentType = request.headers.get("Content-Type") || "application/octet-stream";
+  const contentLength = (() => {
+    const contentLength = request.headers.get("Content-Length");
+    if (!contentLength) {
+      error(400);
+    }
 
-  const options = form.get("options") as string | null;
-  if (!options) {
+    const parsedContentLength = parseInt(contentLength, 10);
+    if (parsedContentLength > MAX_FILE_SIZE) {
+      error(413);
+    } else if (parsedContentLength === 0) {
+      error(400);
+    }
+    return parsedContentLength;
+  })();
+
+  const fileName = request.headers.get("X-Content-Name");
+  const isDisposable = request.headers.get("X-Content-Disposable") === "true";
+  const isEncrypted = request.headers.get("X-Content-Encryption") === "true";
+
+  if (!fileName || !request.body) {
     error(400);
   }
 
-  const parsedOptions = await optionsSchema.safeParseAsync(JSON.parse(options));
-  if (!parsedOptions.success) {
-    error(400);
-  }
-  const {
-    name: fileName,
-    contentType: fileType,
+  const { fileID, fileHash } = await uploadFile(request.body, {
+    name: decodeURIComponent(fileName),
+    contentType,
+    contentLength,
+
     isDisposable,
-    isEncrypted
-  } = parsedOptions.data;
-
-  const file = form.get("file") as File | null;
-  if (!file || file.size === 0) {
-    error(400);
-  } else if (file.size > MAX_FILE_SIZE) {
-    error(413);
-  }
-
-  const fileBuffer = Buffer.from(await file.arrayBuffer());
-  const fileHash = hash(fileBuffer);
-  const fileID = await uploadFile(fileBuffer, {
-    name: fileName,
-    contentType: fileType || "application/octet-stream",
-
-    isDisposable: isDisposable || false,
-    isEncrypted: isEncrypted || false,
+    isEncrypted,
   });
 
   logger.info(
-    `File "${fileName}" uploaded as "${fileID}" with hash "${fileHash}" by "${getClientAddress()}" (${file.size} bytes)`);
+    `File "${fileName}" uploaded as "${fileID}" with hash "${fileHash}" by "${getClientAddress()}" (${contentLength} bytes)`);
 
   return text(fileID, {
     headers: {
