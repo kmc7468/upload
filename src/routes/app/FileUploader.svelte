@@ -74,7 +74,7 @@
         }
       } catch {
         uploadStatus.displayFailure();
-        alert("An error occurred while encrypting the file.");
+        alert("An error occurred while encrypting the file. The file may be too large to encrypt in your browser.");
         return;
       } finally {
         $isUploading = false;
