@@ -1,9 +1,10 @@
 
 import { error, text } from "@sveltejs/kit";
 import { ID_REGEX } from "$lib/server/loadenv";
+import { fileDownloadHandler, fileUploadHandler } from "$lib/server/services/files";
 import type { RequestHandler } from "./$types";
 
-export const GET: RequestHandler = async ({ params, url, fetch }) => {
+export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
   const fileID = params.a;
   const fileName = params.b;
   if (!ID_REGEX.test(fileID)) {
@@ -20,20 +21,20 @@ export const GET: RequestHandler = async ({ params, url, fetch }) => {
     }
   })();
 
-  const response = await fetch(`/api/file/${fileID}?` + new URLSearchParams({
-    conv: requiredType || "",
-  }).toString());
-  if (!response.ok) {
-    error(response.status);
-  }
+  const file = await fileDownloadHandler({
+    fileID,
+    requiredType,
 
-  return new Response(response.body, {
+    clientAddress: getClientAddress(),
+  });
+
+  return new Response(file.content, {
     headers: {
       "Content-Disposition": fileName
         ? `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
         : "inline",
       "Content-Type": "", // Let the browser infer it
-      "Content-Length": response.headers.get("Content-Length")!,
+      "Content-Length": file.contentLength.toString(),
     }
   });
 };
@@ -42,7 +43,7 @@ const isValidFileAttr = (fileAttr: string) => {
   return fileAttr.split("").every(char => "de".includes(char));
 };
 
-export const POST: RequestHandler = async ({ request, params, url, fetch }) => {
+export const POST: RequestHandler = async ({ request, params, url, getClientAddress }) => {
   const fileAttr = params.b ? params.a : undefined;
   if (fileAttr && !isValidFileAttr(fileAttr)) {
     error(404);
@@ -51,27 +52,19 @@ export const POST: RequestHandler = async ({ request, params, url, fetch }) => {
   const isEncrypted = fileAttr?.includes("e") ?? false;
 
   const fileName = params.b ? params.b : params.a;
-
-  const formData = new FormData();
-  formData.append("options", JSON.stringify({
-    name: fileName,
+  const { fileID, downloadURL } = await fileUploadHandler({
+    fileName,
     contentType: request.headers.get("Content-Type"),
+    contentLength: request.headers.get("Content-Length"),
 
     isDisposable,
     isEncrypted,
-  }));
-  formData.append("file", await request.blob());
 
-  const response = await fetch("/api/file/upload", {
-    method: "POST",
-    body: formData,
+    url,
+    body: request.body,
+    clientAddress: getClientAddress(),
   });
-  if (!response.ok) {
-    error(response.status);
-  }
 
-  const fileID = await response.text();
-  const downloadURL = response.headers.get("Location")!;
   return text(
     isEncrypted ?
       `curl -s ${url.origin}/${fileID} | openssl enc -d -aes-256-cbc -pbkdf2 > "${fileName}"\n` :

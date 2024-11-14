@@ -9,7 +9,7 @@ import { createFile, findFile, findExpiredFiles, getAllFileIDs, deleteFile } fro
 import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "./loadenv";
 
 type ImageType = "jpeg" | "png";
-type FileType = ImageType;
+export type FileType = ImageType;
 
 const imageTypes = ["jpeg", "png"] satisfies ImageType[];
 const fileTypes = ([] as FileType[]).concat(imageTypes);
@@ -95,7 +95,7 @@ export const uploadFile = async (file: ReadableStream<Uint8Array>, attributes: F
     const fileStream = createWriteStream(filePath, { mode: 0o600 });
 
     await file.pipeThrough(hashStream).pipeTo(convertToWritableStream(fileStream));
-  } catch (err) {
+  } catch {
     await fs.unlink(filePath);
     error(400);
   }
