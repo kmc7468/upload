@@ -13,6 +13,6 @@ COPY . .
 RUN ["sh", "patch/apply.sh"]
 RUN ["pnpm", "build"]
 
-ENV BODY_SIZE_LIMIT Infinity
+ENV BODY_SIZE_LIMIT=Infinity
 EXPOSE 3000
 ENTRYPOINT ["node", "build"]

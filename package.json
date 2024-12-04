@@ -16,7 +16,7 @@
     "node-addon-api": "^8.2.2",
     "node-gyp": "^10.2.0",
     "node-schedule": "^2.1.1",
-    "sharp": "^0.33.5",
+    "sharp": "^0.33.4",
     "winston": "^3.17.0"
   },
   "devDependencies": {
