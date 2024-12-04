@@ -34,6 +34,18 @@
       : undefined
   );
 
+  const updateExtension = (downloadURL: string, newExtension: string) => {
+    const url = new URL(downloadURL);
+    const pathname = url.pathname;
+    const hasExtension = pathname.match(/\.[a-zA-Z0-9%_-]+$/);
+
+    if (!hasExtension) {
+      return downloadURL + newExtension;
+    } else {
+      return downloadURL.replace(/\.[a-zA-Z0-9%_-]+$/, newExtension);
+    }
+  };
+
   export const displayEncrypting = () => {
     status = {
       status: "encrypting",
@@ -79,8 +91,8 @@
     {#if status.isImage && !status.passphrase}
       <details>
         <summary>Utility</summary>
-        <button onclick={() => goto(`${realDownloadURL}?jpg`)}>Convert to JPEG</button>
-        <button onclick={() => goto(`${realDownloadURL}?png`)}>Convert to PNG</button>
+        <button onclick={() => goto(`${updateExtension(realDownloadURL, ".jpg")}?jpg`)}>Convert to JPEG</button>
+        <button onclick={() => goto(`${updateExtension(realDownloadURL, ".png")}?png`)}>Convert to PNG</button>
       </details>
     {/if}
     {#await QRCode.toDataURL(realDownloadURL, { margin: 2, width: 150 }) then qrcode}
