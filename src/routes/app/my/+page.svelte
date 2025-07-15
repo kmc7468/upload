@@ -164,10 +164,6 @@
     return path;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     alert("Copied to clipboard!");
@@ -177,7 +173,7 @@
   const sortedFiles = $derived([...uploadedFiles].sort((a, b) => {
     if (a.isExpired && !b.isExpired) return 1;
     if (!a.isExpired && b.isExpired) return -1;
-    return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
+    return b.uploadedAt.getTime() - a.uploadedAt.getTime();
   }));
 
   onMount(() => {
@@ -266,7 +262,7 @@
                   {/if}
                 </div>
                 <div class="file-date">
-                  Uploaded: {formatDate(file.uploadedAt)}
+                  Uploaded: {file.uploadedAt.toLocaleString()}
                 </div>
                 {#if file.isExpired}
                   <div class="file-expired-notice">

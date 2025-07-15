@@ -2,7 +2,7 @@ export interface UploadedFile {
   id: string;
   name: string;
   managementToken: string;
-  uploadedAt: string;
+  uploadedAt: Date;
   isEncrypted: boolean;
   passphrase?: string;
   isExpired?: boolean;
@@ -10,7 +10,11 @@ export interface UploadedFile {
 
 export const getUploadedFiles = () => {
   const files = window.localStorage.getItem("uploadedFiles");
-  return files ? JSON.parse(files) as UploadedFile[] : [];
+  const parsedFiles = files ? JSON.parse(files) : [];
+  return parsedFiles.map((file: any) => ({
+    ...file,
+    uploadedAt: new Date(file.uploadedAt)
+  })) as UploadedFile[];
 };
 
 const saveUploadedFiles = (files: UploadedFile[]) => {
@@ -21,7 +25,7 @@ export const addUploadedFile = (file: Omit<UploadedFile, "uploadedAt" | "isExpir
   const files = getUploadedFiles();
   files.push({
     ...file,
-    uploadedAt: new Date().toISOString(),
+    uploadedAt: new Date(),
     isExpired: false,
   });
   saveUploadedFiles(files);
