@@ -4,6 +4,7 @@ export interface FileTable {
   id: string,
   uploadedAt: number, // timestamp
   expireAt: number, // timestamp
+  managementToken: string,
 
   name: string,
   contentType: string,

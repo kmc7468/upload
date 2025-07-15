@@ -1,7 +1,7 @@
 
 import { error, text } from "@sveltejs/kit";
 import { ID_REGEX } from "$lib/server/loadenv";
-import { fileDownloadHandler, fileUploadHandler } from "$lib/server/services/files";
+import { fileDownloadHandler, fileDeleteHandler, fileUploadHandler } from "$lib/server/services/files";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
@@ -52,7 +52,7 @@ export const POST: RequestHandler = async ({ request, params, url, getClientAddr
   const isEncrypted = fileAttr?.includes("e") ?? false;
 
   const fileName = params.b ? params.b : params.a;
-  const { fileID, downloadURL } = await fileUploadHandler({
+  const { fileID, downloadURL, managementToken } = await fileUploadHandler({
     fileName,
     contentType: request.headers.get("Content-Type"),
     contentLength: request.headers.get("Content-Length"),
@@ -73,6 +73,7 @@ export const POST: RequestHandler = async ({ request, params, url, getClientAddr
       headers: {
         "Content-Type": "text/plain",
         "Location": downloadURL,
+        "X-Management-Token": managementToken,
       },
       status: 201,
     }
@@ -80,3 +81,24 @@ export const POST: RequestHandler = async ({ request, params, url, getClientAddr
 };
 
 export const PUT = POST;
+
+export const DELETE: RequestHandler = async ({ request, params }) => {
+  const fileID = params.a;
+  if (!ID_REGEX.test(fileID)) {
+    error(404);
+  }
+
+  const managementToken =
+    request.headers.get("X-Management-Token") ||
+    request.headers.get("Token");
+  if (!managementToken) {
+    error(400);
+  }
+
+  await fileDeleteHandler({
+    fileID,
+    managementToken,
+  });
+
+  return new Response(null, { status: 204 });
+};

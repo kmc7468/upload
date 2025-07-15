@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 import { MAX_FILE_SIZE } from "$lib/constants";
-import { downloadFile, uploadFile, type FileType } from "../filesystem";
+import { downloadFile, deleteAndUnlinkFile, uploadFile, type FileType } from "../filesystem";
 import logger from "../logger";
 
 interface FileUploadContext {
@@ -35,7 +35,7 @@ export const fileUploadHandler = async (context: FileUploadContext) => {
     error(400);
   }
 
-  const { fileID, fileHash } = await uploadFile(context.body, {
+  const { fileID, fileHash, managementToken } = await uploadFile(context.body, {
     name: fileName,
     contentType: contentType || "application/octet-stream",
 
@@ -49,6 +49,7 @@ export const fileUploadHandler = async (context: FileUploadContext) => {
   return {
     fileID,
     downloadURL: `${context.url.origin}/${fileID}/${encodeURIComponent(fileName)}`,
+    managementToken,
   };
 };
 
@@ -74,4 +75,18 @@ export const fileDownloadHandler = async (context: FileDownloadContext) => {
   logger.info(`File "${fileID}" downloaded by "${context.clientAddress}"`);
 
   return file;
+};
+
+interface FileDeleteContext {
+  fileID: string,
+  managementToken: string,
+}
+
+export const fileDeleteHandler = async (context: FileDeleteContext) => {
+  const {
+    fileID,
+    managementToken,
+  } = context;
+
+  await deleteAndUnlinkFile(fileID, managementToken);
 };

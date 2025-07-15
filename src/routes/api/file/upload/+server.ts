@@ -8,7 +8,7 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
     error(400);
   }
 
-  const { fileID, downloadURL } = await fileUploadHandler({
+  const { fileID, downloadURL, managementToken } = await fileUploadHandler({
     fileName: decodeURIComponent(fileName),
     contentType: request.headers.get("Content-Type"),
     contentLength: request.headers.get("Content-Length"),
@@ -25,6 +25,7 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
     headers: {
       "Content-Type": "text/plain",
       "Location": downloadURL,
+      "X-Management-Token": managementToken,
     },
     status: 201,
   });

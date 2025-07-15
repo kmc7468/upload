@@ -4,6 +4,7 @@ import { createReadStream, createWriteStream, existsSync, ReadStream, WriteStrea
 import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import { promisify } from "util";
 import { MAX_CONVERTIBLE_IMAGE_SIZE } from "../constants";
 import { createFile, findFile, findExpiredFiles, getAllFileIDs, deleteFile } from "./db/file";
 import { UPLOAD_DIR, CACHE_DIR, ID_CHARS, ID_LENGTH, FILE_EXPIRY } from "./loadenv";
@@ -79,6 +80,8 @@ const determineContentType = (type: string) => {
   }
 };
 
+const randomBytes = promisify(crypto.randomBytes);
+
 export const uploadFile = async (file: ReadableStream<Uint8Array>, attributes: FileAttributes) => {
   const fileID = generateUniqueID();
   const filePath = path.join(UPLOAD_DIR, fileID);
@@ -100,10 +103,13 @@ export const uploadFile = async (file: ReadableStream<Uint8Array>, attributes: F
     error(400);
   }
 
+  const managementToken = await randomBytes(32).then(buffer => buffer.toString("hex"));
+
   await createFile({
     id: fileID,
     uploadedAt: now,
     expireAt: now + FILE_EXPIRY,
+    managementToken,
 
     name: attributes.name,
     contentType: determineContentType(attributes.contentType),
@@ -112,7 +118,7 @@ export const uploadFile = async (file: ReadableStream<Uint8Array>, attributes: F
     isEncrypted: attributes.isEncrypted ? 1 : 0,
   });
 
-  return { fileID, fileHash: fileHash.digest("hex") };
+  return { fileID, fileHash: fileHash.digest("hex"), managementToken };
 };
 
 const readFileIfExist = async (path: string) => {
@@ -242,6 +248,20 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
       isEncrypted,
     }
   }
+};
+
+export const deleteAndUnlinkFile = async (fileID: string, managementToken: string) => {
+  const file = await findFile(fileID);
+  if (!file) {
+    error(404);
+  } else if (file.managementToken !== managementToken) {
+    error(403);
+  }
+
+  await Promise.all([
+    deleteFile(fileID),
+    fs.unlink(path.join(UPLOAD_DIR, fileID)),
+  ]);
 };
 
 const unlinkIfExist = async (path: string) => {
