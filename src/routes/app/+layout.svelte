@@ -5,10 +5,12 @@
 <div>
   <header class="header">
     <div class="header-content">
-      <h1 class="title">
-        <span class="title-icon">📤</span>
-        Minchan's Upload
-      </h1>
+      <a href="/app" class="title-link">
+        <h1 class="title">
+          <span class="title-icon">📤</span>
+          Minchan's Upload
+        </h1>
+      </a>
       <nav class="header-nav">
         <a href="https://github.com/kmc7468/upload" target="_blank" rel="noopener noreferrer" class="nav-button github-button">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -65,6 +67,21 @@
     font-size: 28px;
   }
 
+  .title-link {
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+  }
+
+  .title-link:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+  }
+
+  .title-link:hover .title {
+    color: #667eea;
+  }
+
   .header-nav {
     display: flex;
     gap: 12px;
@@ -108,6 +125,10 @@
 
     .title {
       font-size: 20px;
+    }
+
+    .title-link:hover {
+      transform: none;
     }
 
     .title-icon {
