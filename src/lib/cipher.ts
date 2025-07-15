@@ -2,7 +2,7 @@ export const generateSalt = (length: number) => {
   return window.crypto.getRandomValues(new Uint8Array(length));
 };
 
-export const deriveBitsUsingPBKDF2 = async (passphrase: string, salt: ArrayBuffer, length: number) => {
+export const deriveBitsUsingPBKDF2 = async (passphrase: string, salt: Uint8Array, length: number) => {
   const passphraseBuffer = new TextEncoder().encode(passphrase);
   const passpharseKey = await window.crypto.subtle.importKey(
     "raw", passphraseBuffer,

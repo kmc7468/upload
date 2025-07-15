@@ -133,7 +133,7 @@
       uploadStatus.updateUploadProgress(percent, throughput);
     });
 
-    xhr.open("POST", "/api/file/upload");
+    xhr.open("POST", "/api/file");
   
     xhr.setRequestHeader("Content-Type", fileType || "application/octet-stream");
     xhr.setRequestHeader("X-Content-Name", encodeURIComponent(targetFile.name));
