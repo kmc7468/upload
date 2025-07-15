@@ -27,7 +27,6 @@
 
     // 순차적으로 파일 유효성 검사 (UI 업데이트를 위해)
     const updatedFiles: UploadedFile[] = [];
-    let expiredCount = 0;
     
     for (let i = 0; i < storedFiles.length; i++) {
       const file = storedFiles[i];
@@ -40,12 +39,7 @@
       };
       
       // 이전에 만료되지 않았던 파일이 지금 만료되었는지 확인
-      const wasExpired = file.isExpired || false;
       const isNowExpired = !exists;
-      
-      if (!wasExpired && isNowExpired) {
-        expiredCount++;
-      }
       
       // 만료된 파일의 경우 passphrase 즉시 삭제 (보안)
       const updatedFile = isNowExpired 
@@ -339,7 +333,6 @@
 <style>
   .main {
     min-height: 100vh;
-    padding: 2rem;
     max-width: 1200px;
     margin: 0 auto;
   }
@@ -468,9 +461,9 @@
   }
 
   .files-grid {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 1.5rem;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   }
 
   .file-card {
@@ -697,10 +690,6 @@
 
     .header-actions {
       justify-content: center;
-    }
-
-    .files-grid {
-      grid-template-columns: 1fr;
     }
 
     .file-actions {
