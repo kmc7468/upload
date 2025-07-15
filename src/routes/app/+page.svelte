@@ -21,6 +21,9 @@
         <span class="section-icon">⬆️</span>
         Upload Files
       </h2>
+      <div class="header-actions">
+        <a href="/app/my" class="btn-secondary">📁 My Files</a>
+      </div>
     </div>
 
     <form class="upload-form">
@@ -150,7 +153,9 @@
   }
 
   .section-header {
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 16px;
   }
 
@@ -161,12 +166,44 @@
     color: white;
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 12px;
   }
 
   .section-icon {
     font-size: 36px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .btn-secondary {
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    color: #4a5568;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-secondary:hover {
+    background: white;
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: #4a5568;
+    text-decoration: none;
   }
 
   .curl-inline {
@@ -362,10 +399,21 @@
       gap: 32px;
     }
 
+    .section-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+    }
+
     .section-title {
       font-size: 28px;
       flex-direction: column;
       gap: 8px;
+      align-self: center;
+    }
+
+    .header-actions {
+      justify-content: center;
     }
 
     .curl-inline {

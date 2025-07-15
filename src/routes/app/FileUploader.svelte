@@ -2,6 +2,7 @@
   import { type Writable } from "svelte/store";
   import { generateSalt, deriveBitsUsingPBKDF2, encryptUsingAES256CBC } from "$lib/cipher";
   import { MAX_FILE_SIZE, MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
+  import { addUploadedFile } from "$lib/storage";
   import UploadStatus from "./UploadStatus.svelte";
 
   interface Props {
@@ -98,7 +99,19 @@
     xhr.addEventListener("load", async () => {
       if (xhr.status === 201) {
         const fileID = xhr.responseText;
+        const managementToken = xhr.getResponseHeader("X-Management-Token");
         const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
+
+        // Store file info in localStorage for my page
+        if (managementToken) {
+          addUploadedFile({
+            id: fileID,
+            name: targetFile.name,
+            managementToken,
+            isEncrypted: isEnabledEncryption,
+            passphrase: isEnabledEncryption ? passphrase!.value : undefined
+          });
+        }
 
         if (isEnabledEncryption) {
           uploadStatus.updateDownloadURL(`${window.location.origin}/app/file/${fileID}`, passphrase!.value, false);

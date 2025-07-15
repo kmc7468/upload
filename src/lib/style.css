@@ -109,3 +109,99 @@ a:hover {
   color: #764ba2;
   text-decoration: underline;
 }
+
+/* CSS Variables for theme consistency */
+:root {
+  --primary-color: #667eea;
+  --primary-color-dark: #5a67d8;
+  --primary-color-light: rgba(102, 126, 234, 0.1);
+  --background-primary: #ffffff;
+  --background-secondary: rgba(255, 255, 255, 0.95);
+  --background-tertiary: rgba(248, 250, 252, 0.8);
+  --background-quaternary: rgba(241, 245, 249, 0.8);
+  --text-primary: #1a202c;
+  --text-secondary: #718096;
+  --border-color: rgba(226, 232, 240, 0.8);
+}
+
+/* Header styles */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.section-icon {
+  font-size: 1.2em;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+/* Button component styles */
+.btn-primary, .btn-secondary {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-block;
+  text-align: center;
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-color-dark);
+  color: white;
+  text-decoration: none;
+}
+
+.btn-secondary {
+  background: var(--background-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: var(--background-quaternary);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .header-actions {
+    justify-content: stretch;
+  }
+
+  .btn-primary, .btn-secondary {
+    width: 100%;
+  }
+}
