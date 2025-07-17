@@ -258,6 +258,7 @@
           
           <div class="download-form">
             <div class="download-link-section">
+              <!-- svelte-ignore a11y_label_has_associated_control -->
               <label class="download-label">
                 <span class="label-text">Download URL</span>
                 <a href={downloadURL} class="download-link">

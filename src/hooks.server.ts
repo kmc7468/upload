@@ -47,6 +47,11 @@ const initializeServer = async () => {
 }
 
 export const handleError: HandleServerError = ({ error }) => {
+  if (error instanceof Error && error.message.startsWith("Not found: ")) {
+    // Not found 오류는 로깅하지 않음
+    return;
+  }
+
   logger.error(error);
 };
 
