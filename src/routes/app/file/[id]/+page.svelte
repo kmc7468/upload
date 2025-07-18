@@ -324,8 +324,7 @@
           Privacy Policy
         </h3>
         <p>
-          When downloading files, we permanently store: filename, file size, file hash, and your IP address.
-          This information is used for security and analytics purposes.
+          When downloading files, we <strong>permanently</strong> store: file ID and your IP address.
         </p>
       </div>
     </section>
@@ -639,7 +638,7 @@
     border-radius: 12px;
     transition: all 0.3s ease;
     display: block;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.4;
   }
 
@@ -827,6 +826,10 @@
   @media (max-width: 768px) {
     .main {
       gap: 32px;
+    }
+
+    .section-header {
+      margin-bottom: 0;
     }
 
     .section-title {

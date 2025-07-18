@@ -81,7 +81,7 @@
               <input type="checkbox" bind:checked={isEnabledEncryption} disabled={$isUploading} />
               <span class="option-label">
                 <strong>End-to-End Encryption</strong>
-                <small>Encrypt file before uploading (E2EE)</small>
+                <small>File will be encrypted before uploading</small>
               </span>
             </label>
           {/if}
@@ -120,8 +120,7 @@
           Privacy Policy
         </h3>
         <p>
-          We permanently store: filename, file size, hash, and your IP address.
-          Files are accessible via 5-letter IDs.
+          When uploading files, we <strong>permanently</strong> store: file name, file size, file hash, and your IP address.
         </p>
       </div>
 
@@ -285,7 +284,7 @@
   }
 
   .options-section h3 {
-    margin: 0 0 16px 0;
+    margin: 0 0 8px 0;
     color: #333;
     font-size: 18px;
     font-weight: 600;
@@ -403,6 +402,7 @@
       flex-direction: column;
       align-items: stretch;
       gap: 1rem;
+      margin-bottom: 0;
     }
 
     .section-title {

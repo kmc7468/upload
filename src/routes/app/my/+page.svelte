@@ -332,7 +332,6 @@
 
 <style>
   .main {
-    min-height: 100vh;
     max-width: 1200px;
     margin: 0 auto;
   }
@@ -371,7 +370,7 @@
   .header-actions {
     display: flex;
     gap: 1rem;
-    align-items: center;
+    align-items: stretch;
   }
 
   .empty-state {
@@ -669,10 +668,6 @@
   }
 
   @media (max-width: 768px) {
-    .main {
-      padding: 1rem;
-    }
-
     .upload-section {
       padding: 1.5rem;
     }

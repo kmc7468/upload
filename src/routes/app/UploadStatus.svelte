@@ -110,15 +110,15 @@
         </a>
         
         <div class="download-actions">
-          <button onclick={() => navigator.clipboard.writeText(realDownloadURL)} class="copy-button">
+          <button type="button" onclick={() => navigator.clipboard.writeText(realDownloadURL)} class="copy-button">
             📋 Copy Link
           </button>
           
           {#if status.isImage && !status.passphrase}
-            <button onclick={() => goto(`${updateExtension(realDownloadURL, ".jpg")}?jpg`)} class="utility-button">
+            <button type="button" onclick={() => goto(`${updateExtension(realDownloadURL, ".jpg")}?jpg`)} class="utility-button">
               🖼️ Convert to JPEG
             </button>
-            <button onclick={() => goto(`${updateExtension(realDownloadURL, ".png")}?png`)} class="utility-button">
+            <button type="button" onclick={() => goto(`${updateExtension(realDownloadURL, ".png")}?png`)} class="utility-button">
               🖼️ Convert to PNG
             </button>
           {/if}

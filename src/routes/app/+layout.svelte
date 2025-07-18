@@ -30,6 +30,18 @@
   <main class="main-content">
     {@render children?.()}
   </main>
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-info">
+        <p class="copyright">© 2024-2025. kmc7468 All rights reserved.</p>
+      </div>
+      <div class="footer-actions">
+        <a href="/install.sh" class="install-button" target="_blank" rel="noopener noreferrer">
+          Linux CLI Tool
+        </a>
+      </div>
+    </div>
+  </footer>
 </div>
 
 <style>
@@ -117,6 +129,65 @@
     width: 100%;
   }
 
+  .footer {
+    margin-top: 32px;
+    padding: 24px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .footer-content {
+    max-width: 848px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .footer-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .copyright {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .footer-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .install-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+  }
+
+  .install-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+    color: white;
+    text-decoration: none;
+  }
+
   @media (max-width: 768px) {
     .header-content {
       padding: 0 16px;
@@ -146,6 +217,21 @@
 
     .main-content {
       padding: 24px 16px;
+    }
+
+    .footer-content {
+      padding: 0 16px;
+      flex-direction: column;
+      text-align: center;
+      gap: 12px;
+    }
+
+    .footer-info {
+      order: 1;
+    }
+
+    .footer-actions {
+      display: none;
     }
   }
 
