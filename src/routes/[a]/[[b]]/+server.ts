@@ -1,7 +1,10 @@
-
 import { error, text } from "@sveltejs/kit";
 import { ID_REGEX } from "$lib/server/loadenv";
-import { fileDownloadHandler, fileDeleteHandler, fileUploadHandler } from "$lib/server/services/files";
+import {
+  fileDownloadHandler,
+  fileDeleteHandler,
+  fileUploadHandler,
+} from "$lib/server/services/files";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
@@ -28,19 +31,19 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
     clientAddress: getClientAddress(),
   });
 
-  return new Response(file.content, {
+  return new Response(Buffer.isBuffer(file.content) ? new Uint8Array(file.content) : file.content, {
     headers: {
       "Content-Disposition": fileName
         ? `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
         : "inline",
       "Content-Type": "", // Let the browser infer it
       "Content-Length": file.contentLength.toString(),
-    }
+    },
   });
 };
 
 const isValidFileAttr = (fileAttr: string) => {
-  return fileAttr.split("").every(char => "de".includes(char));
+  return fileAttr.split("").every((char) => "de".includes(char));
 };
 
 export const POST: RequestHandler = async ({ request, params, url, getClientAddress }) => {
@@ -66,17 +69,17 @@ export const POST: RequestHandler = async ({ request, params, url, getClientAddr
   });
 
   return text(
-    isEncrypted ?
-      `curl -s ${url.origin}/${fileID} | openssl enc -d -aes-256-cbc -pbkdf2 > "${fileName}"\n` :
-      `curl -O ${downloadURL}\n`,
+    isEncrypted
+      ? `curl -s ${url.origin}/${fileID} | openssl enc -d -aes-256-cbc -pbkdf2 > "${fileName}"\n`
+      : `curl -O ${downloadURL}\n`,
     {
       headers: {
         "Content-Type": "text/plain",
-        "Location": downloadURL,
+        Location: downloadURL,
         "X-Management-Token": managementToken,
       },
       status: 201,
-    }
+    },
   );
 };
 
@@ -88,9 +91,7 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
     error(404);
   }
 
-  const managementToken =
-    request.headers.get("X-Management-Token") ||
-    request.headers.get("Token");
+  const managementToken = request.headers.get("X-Management-Token") || request.headers.get("Token");
   if (!managementToken) {
     error(400);
   }

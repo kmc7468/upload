@@ -3,7 +3,7 @@ import ts from "typescript-eslint";
 import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 
-/** @type {import("eslint").Linter.FlatConfig[]} */
+/** @type {import("eslint").Linter.Config[]} */
 export default [
   js.configs.recommended,
   ...ts.configs.recommended,
@@ -12,24 +12,28 @@ export default [
     languageOptions: {
       globals: {
         ...globals.browser,
-        ...globals.node
-      }
-    }
+        ...globals.node,
+      },
+    },
   },
   {
     files: ["**/*.svelte"],
     languageOptions: {
       parserOptions: {
-        parser: ts.parser
-      }
-    }
+        parser: ts.parser,
+      },
+    },
+    rules: {
+      // Links include absolute file download URLs and the app runs at /.
+      "svelte/no-navigation-without-resolve": "off",
+    },
   },
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
-    }
+    },
   },
   {
-    ignores: [".svelte-kit/", "build/", "dist/", "patch/"]
-  }
+    ignores: [".svelte-kit/", "build/", "dist/", "patches/"],
+  },
 ];

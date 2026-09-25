@@ -1,5 +1,6 @@
 .env
 .git
 .svelte-kit
+.vscode
 build
 node_modules

@@ -34,20 +34,24 @@
             <div class="curl-container">
               {#if isEnabledEncryption}
                 <code class="curl-command-inline">
-                  openssl enc -e -aes-256-cbc -pbkdf2 &lt; <i>filename</i> | curl --upload-file - {#if isDisposable}{window.location.origin}/de/file{:else}{window.location.origin}/e/<i>filename</i>{/if}
+                  openssl enc -e -aes-256-cbc -pbkdf2 &lt; <i>filename</i> | curl --upload-file - {#if isDisposable}{window
+                      .location.origin}/de/file{:else}{window.location.origin}/e/<i>filename</i
+                    >{/if}
                 </code>
               {:else}
                 <code class="curl-command-inline">
-                  curl --upload-file <i>filename</i> {#if isDisposable}{window.location.origin}/d/<i>filename</i>{:else}{window.location.origin}{/if}
+                  curl --upload-file <i>filename</i>
+                  {#if isDisposable}{window.location.origin}/d/<i>filename</i>{:else}{window
+                      .location.origin}{/if}
                 </code>
               {/if}
-              <button 
+              <button
                 type="button"
                 class="curl-copy-btn"
                 onclick={() => {
-                  const command = isEnabledEncryption 
-                    ? `openssl enc -e -aes-256-cbc -pbkdf2 < filename | curl --upload-file - ${isDisposable ? window.location.origin + '/de/filename' : window.location.origin + '/e/filename'}`
-                    : `curl --upload-file filename ${isDisposable ? window.location.origin + '/d/filename' : window.location.origin}`;
+                  const command = isEnabledEncryption
+                    ? `openssl enc -e -aes-256-cbc -pbkdf2 < filename | curl --upload-file - ${isDisposable ? window.location.origin + "/de/filename" : window.location.origin + "/e/filename"}`
+                    : `curl --upload-file filename ${isDisposable ? window.location.origin + "/d/filename" : window.location.origin}`;
                   navigator.clipboard.writeText(command);
                 }}
               >
@@ -56,17 +60,16 @@
             </div>
           </div>
         {/if}
-        
-        <FileUploader
-          isDisposable={isDisposable}
-          isEnabledEncryption={isEnabledEncryption}
-          isUploading={isUploading} />
+
+        <FileUploader {isDisposable} {isEnabledEncryption} {isUploading} />
       </div>
 
       <div class="options-section rounded-box">
         <h3>⚙️ Upload Options</h3>
-        <p class="options-note">Configure these options <strong>before</strong> selecting files.</p>
-        
+        <p class="options-note">
+          Configure these options <strong>before</strong> selecting files.
+        </p>
+
         <div class="options-grid">
           <label class="option-item">
             <input type="checkbox" bind:checked={isDisposable} disabled={$isUploading} />
@@ -75,7 +78,7 @@
               <small>File will be deleted after first download</small>
             </span>
           </label>
-          
+
           {#if browser && window.crypto.subtle}
             <label class="option-item">
               <input type="checkbox" bind:checked={isEnabledEncryption} disabled={$isUploading} />
@@ -98,8 +101,8 @@
           Storage Duration
         </h3>
         <p>
-          Files are automatically deleted after <strong>24 hours</strong>.
-          They may be removed earlier depending on server capacity.
+          Files are automatically deleted after <strong>24 hours</strong>. They may be removed
+          earlier depending on server capacity.
         </p>
       </div>
 
@@ -109,8 +112,8 @@
           Storage Capacity
         </h3>
         <p>
-          The server has <strong>16 GiB</strong> of available storage.
-          During high traffic, uploads may be temporarily unavailable.
+          The server has <strong>16 GiB</strong> of available storage. During high traffic, uploads may
+          be temporarily unavailable.
         </p>
       </div>
 
@@ -120,7 +123,8 @@
           Privacy Policy
         </h3>
         <p>
-          When uploading files, we <strong>permanently</strong> store: file name, file size, file hash, and your IP address.
+          When uploading files, we <strong>permanently</strong> store: file name, file size, file hash,
+          and your IP address.
         </p>
       </div>
 
@@ -234,7 +238,7 @@
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     padding: 8px 12px;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
     font-size: 12px;
     line-height: 1.4;
     overflow-x: auto;
@@ -273,11 +277,11 @@
     .upload-form {
       flex-direction: column;
     }
-    
+
     .options-section {
       order: 1;
     }
-    
+
     .uploader-section {
       order: 2;
     }

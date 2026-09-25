@@ -15,6 +15,6 @@ export const load: PageServerLoad = async ({ params }) => {
   } else {
     return {
       file: null,
-    }
+    };
   }
 };

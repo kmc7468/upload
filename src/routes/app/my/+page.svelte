@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { browser } from "$app/environment";
-  import { 
+  import {
     getUploadedFiles,
     removeExpiredFiles,
     removeUploadedFile,
@@ -27,43 +27,42 @@
 
     // 순차적으로 파일 유효성 검사 (UI 업데이트를 위해)
     const updatedFiles: UploadedFile[] = [];
-    
+
     for (let i = 0; i < storedFiles.length; i++) {
       const file = storedFiles[i];
       const exists = await checkFileExists(file);
-      
+
       // 진행 상황을 새 객체로 업데이트
-      validationProgress = { 
-        current: i + 1, 
-        total: storedFiles.length 
+      validationProgress = {
+        current: i + 1,
+        total: storedFiles.length,
       };
-      
+
       // 이전에 만료되지 않았던 파일이 지금 만료되었는지 확인
       const isNowExpired = !exists;
-      
+
       // 만료된 파일의 경우 passphrase 즉시 삭제 (보안)
-      const updatedFile = isNowExpired 
+      const updatedFile = isNowExpired
         ? { ...file, isExpired: true, passphrase: undefined }
         : { ...file, isExpired: isNowExpired };
-      
+
       // 변경이 감지된 경우 즉시 localStorage 업데이트
-      if (file.isExpired !== updatedFile.isExpired || 
-          file.passphrase !== updatedFile.passphrase) {
+      if (file.isExpired !== updatedFile.isExpired || file.passphrase !== updatedFile.passphrase) {
         updateUploadedFile(file.id, {
           isExpired: updatedFile.isExpired,
-          passphrase: updatedFile.passphrase
+          passphrase: updatedFile.passphrase,
         });
       }
-      
+
       updatedFiles.push(updatedFile);
 
       // UI 업데이트를 위한 짧은 지연
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
     // 파일 상태를 UI에 반영
     uploadedFiles = updatedFiles;
-    
+
     isInitializing = false;
   };
 
@@ -87,13 +86,13 @@
 
       if (response.ok) {
         removeUploadedFile(file.id);
-        uploadedFiles = uploadedFiles.filter(f => f.id !== file.id);
+        uploadedFiles = uploadedFiles.filter((f) => f.id !== file.id);
         alert("File deleted successfully.");
       } else if (response.status === 404) {
         // 파일이 이미 삭제되었으면 만료 상태로 표시하고 passphrase 삭제 (보안)
         updateUploadedFile(file.id, { isExpired: true, passphrase: undefined });
-        uploadedFiles = uploadedFiles.map(f => 
-          f.id === file.id ? { ...f, isExpired: true, passphrase: undefined } : f
+        uploadedFiles = uploadedFiles.map((f) =>
+          f.id === file.id ? { ...f, isExpired: true, passphrase: undefined } : f,
         );
         alert("File not found. It has been marked as expired.");
       } else {
@@ -126,20 +125,22 @@
   };
 
   const cleanupExpiredFiles = async () => {
-    const expiredFiles = uploadedFiles.filter(file => file.isExpired);
-    
+    const expiredFiles = uploadedFiles.filter((file) => file.isExpired);
+
     if (expiredFiles.length === 0) {
       alert("No expired files to remove.");
       return;
     }
 
-    if (!confirm(`This will remove ${expiredFiles.length} expired files from your list. Continue?`)) {
+    if (
+      !confirm(`This will remove ${expiredFiles.length} expired files from your list. Continue?`)
+    ) {
       return;
     }
 
     // 만료되지 않은 파일만 유지
     removeExpiredFiles();
-    uploadedFiles = uploadedFiles.filter(file => !file.isExpired);
+    uploadedFiles = uploadedFiles.filter((file) => !file.isExpired);
   };
 
   const getDownloadUrl = (file: UploadedFile) => {
@@ -164,11 +165,13 @@
   };
 
   // 활성 파일을 먼저 표시하도록 정렬
-  const sortedFiles = $derived([...uploadedFiles].sort((a, b) => {
-    if (a.isExpired && !b.isExpired) return 1;
-    if (!a.isExpired && b.isExpired) return -1;
-    return b.uploadedAt.getTime() - a.uploadedAt.getTime();
-  }));
+  const sortedFiles = $derived(
+    [...uploadedFiles].sort((a, b) => {
+      if (a.isExpired && !b.isExpired) return 1;
+      if (!a.isExpired && b.isExpired) return -1;
+      return b.uploadedAt.getTime() - a.uploadedAt.getTime();
+    }),
+  );
 
   onMount(() => {
     loadAndValidateFiles(); // Intended
@@ -187,14 +190,14 @@
         My Files
       </h2>
       <div class="header-actions">
-        <button 
+        <button
           class="btn-secondary"
           onclick={cleanupExpiredFiles}
-          disabled={isLoading || uploadedFiles.filter(f => f.isExpired).length === 0}
+          disabled={isLoading || uploadedFiles.filter((f) => f.isExpired).length === 0}
         >
-          {uploadedFiles.filter(f => f.isExpired).length === 0 
-            ? "🗑️ No expired files" 
-            : `🗑️ Remove ${uploadedFiles.filter(f => f.isExpired).length} expired files`}
+          {uploadedFiles.filter((f) => f.isExpired).length === 0
+            ? "🗑️ No expired files"
+            : `🗑️ Remove ${uploadedFiles.filter((f) => f.isExpired).length} expired files`}
         </button>
         <a href="/app" class="btn-primary">⬆️ Upload new file</a>
       </div>
@@ -208,8 +211,8 @@
         {#if validationProgress.total > 0}
           <div class="progress-container">
             <div class="progress-bar">
-              <div 
-                class="progress-fill" 
+              <div
+                class="progress-fill"
                 style="width: {(validationProgress.current / validationProgress.total) * 100}%"
               ></div>
             </div>
@@ -231,8 +234,8 @@
         {#each sortedFiles as file (file.id)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div 
-            class="file-card" 
+          <div
+            class="file-card"
             class:expired={file.isExpired}
             class:clickable={!file.isExpired}
             onclick={() => {
@@ -277,13 +280,9 @@
               >
                 📋 Copy URL
               </button>
-              
+
               {#if file.isExpired}
-                <button
-                  class="btn-primary"
-                  disabled
-                  onclick={(e) => e.stopPropagation()}
-                >
+                <button class="btn-primary" disabled onclick={(e) => e.stopPropagation()}>
                   📥 Download
                 </button>
               {:else}
@@ -451,7 +450,8 @@
   }
 
   @keyframes pulse {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
     }
     50% {
@@ -532,7 +532,7 @@
   }
 
   .file-id {
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
     font-size: 0.8rem;
     color: #4a5568;
     background: #f7fafc;
@@ -574,7 +574,10 @@
     gap: 0.75rem;
   }
 
-  .btn-primary, .btn-secondary, .btn-danger, .btn-info {
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-info {
     padding: 0.75rem 1.25rem;
     border: none;
     border-radius: 8px;
@@ -636,13 +639,15 @@
     cursor: not-allowed !important;
   }
 
-  .btn-info:disabled, .btn-danger:disabled {
+  .btn-info:disabled,
+  .btn-danger:disabled {
     background: #cbd5e0;
     color: #a0aec0;
     cursor: not-allowed;
   }
 
-  .btn-info:disabled:hover, .btn-danger:disabled:hover {
+  .btn-info:disabled:hover,
+  .btn-danger:disabled:hover {
     transform: none;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
@@ -691,7 +696,10 @@
       flex-direction: column;
     }
 
-    .btn-primary, .btn-secondary, .btn-danger, .btn-info {
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .btn-info {
       width: 100%;
       justify-content: center;
     }

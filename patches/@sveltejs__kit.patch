@@ -1,0 +1,15 @@
+diff --git a/src/exports/node/index.js b/src/exports/node/index.js
+index 87851e0c821c7a305071d75eb09c80ae6fbc21ed..a898d169b47042dd01a717093146821f9db5c173 100644
+--- a/src/exports/node/index.js
++++ b/src/exports/node/index.js
+@@ -11,10 +11,6 @@ import { get_set_cookies } from '../../utils/http.js';
+ function get_raw_body(req, body_size_limit) {
+ 	const h = req.headers;
+ 
+-	if (!h['content-type']) {
+-		return null;
+-	}
+-
+ 	const content_length = Number(h['content-length']);
+ 	const has_content_length = Number.isFinite(content_length);
+ 

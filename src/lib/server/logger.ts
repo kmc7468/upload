@@ -3,7 +3,7 @@ import { LOG_DIR } from "./loadenv";
 
 const baseFormat = format.combine(
   format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-  format(info => {
+  format((info) => {
     info.level = info.level.toUpperCase();
     return info;
   })(),
@@ -19,10 +19,7 @@ export default createLogger({
   format: baseFormat,
   transports: [
     new transports.Console({
-      format: format.combine(
-        format.colorize({ level: true }),
-        formatter,
-      ),
+      format: format.combine(format.colorize({ level: true }), formatter),
     }),
     new transports.File({
       filename: (() => {

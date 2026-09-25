@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
   return text(fileID, {
     headers: {
       "Content-Type": "text/plain",
-      "Location": downloadURL,
+      Location: downloadURL,
       "X-Management-Token": managementToken,
     },
     status: 201,

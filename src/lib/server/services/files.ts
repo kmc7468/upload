@@ -4,26 +4,20 @@ import { downloadFile, deleteAndUnlinkFile, uploadFile, type FileType } from "..
 import logger from "../logger";
 
 interface FileUploadContext {
-  fileName: string,
-  contentType: string | null,
-  contentLength: string | null,
+  fileName: string;
+  contentType: string | null;
+  contentLength: string | null;
 
-  isDisposable: boolean,
-  isEncrypted: boolean,
+  isDisposable: boolean;
+  isEncrypted: boolean;
 
-  url: URL,
-  body: ReadableStream<Uint8Array> | null,
-  clientAddress: string,
+  url: URL;
+  body: ReadableStream<Uint8Array> | null;
+  clientAddress: string;
 }
 
 export const fileUploadHandler = async (context: FileUploadContext) => {
-  const {
-    fileName,
-    contentType,
-    contentLength,
-    isDisposable,
-    isEncrypted,
-  } = context;
+  const { fileName, contentType, contentLength, isDisposable, isEncrypted } = context;
   if (!contentLength || !context.body) {
     error(400);
   }
@@ -44,7 +38,8 @@ export const fileUploadHandler = async (context: FileUploadContext) => {
   });
 
   logger.info(
-    `File "${fileName}" uploaded as "${fileID}" with hash "${fileHash}" by "${context.clientAddress}" (${parsedContentLength} bytes)`);
+    `File "${fileName}" uploaded as "${fileID}" with hash "${fileHash}" by "${context.clientAddress}" (${parsedContentLength} bytes)`,
+  );
 
   return {
     fileID,
@@ -54,17 +49,14 @@ export const fileUploadHandler = async (context: FileUploadContext) => {
 };
 
 interface FileDownloadContext {
-  fileID: string,
-  requiredType?: FileType,
+  fileID: string;
+  requiredType?: FileType;
 
-  clientAddress: string,
+  clientAddress: string;
 }
 
 export const fileDownloadHandler = async (context: FileDownloadContext) => {
-  const {
-    fileID,
-    requiredType,
-  } = context;
+  const { fileID, requiredType } = context;
 
   const file = await downloadFile(fileID, requiredType);
   if (!file) {
@@ -78,15 +70,12 @@ export const fileDownloadHandler = async (context: FileDownloadContext) => {
 };
 
 interface FileDeleteContext {
-  fileID: string,
-  managementToken: string,
+  fileID: string;
+  managementToken: string;
 }
 
 export const fileDeleteHandler = async (context: FileDeleteContext) => {
-  const {
-    fileID,
-    managementToken,
-  } = context;
+  const { fileID, managementToken } = context;
 
   await deleteAndUnlinkFile(fileID, managementToken);
 };

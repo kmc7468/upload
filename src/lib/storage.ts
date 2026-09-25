@@ -13,7 +13,7 @@ export const getUploadedFiles = () => {
   const parsedFiles = files ? JSON.parse(files) : [];
   return parsedFiles.map((file: any) => ({
     ...file,
-    uploadedAt: new Date(file.uploadedAt)
+    uploadedAt: new Date(file.uploadedAt),
   })) as UploadedFile[];
 };
 
@@ -33,9 +33,7 @@ export const addUploadedFile = (file: Omit<UploadedFile, "uploadedAt" | "isExpir
 
 export const updateUploadedFile = (fileId: string, updates: Partial<UploadedFile>) => {
   const files = getUploadedFiles();
-  saveUploadedFiles(files.map(file => 
-    file.id === fileId ? { ...file, ...updates } : file,
-  ));
+  saveUploadedFiles(files.map((file) => (file.id === fileId ? { ...file, ...updates } : file)));
 };
 
 export const removeUploadedFile = (fileId: string) => {

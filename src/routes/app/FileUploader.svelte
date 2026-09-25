@@ -21,7 +21,9 @@
 
   // 옵션이 변경될 때 업로드 상태 초기화
   $effect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     isDisposable;
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     isEnabledEncryption;
     uploadStatus?.reset();
   });
@@ -83,7 +85,9 @@
         }
       } catch {
         uploadStatus.displayFailure();
-        alert("An error occurred while encrypting the file. The file may be too large to encrypt in your browser.");
+        alert(
+          "An error occurred while encrypting the file. The file may be too large to encrypt in your browser.",
+        );
         return;
       } finally {
         $isUploading = false;
@@ -100,7 +104,8 @@
       if (xhr.status === 201) {
         const fileID = xhr.responseText;
         const managementToken = xhr.getResponseHeader("X-Management-Token");
-        const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
+        const isImage =
+          fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
 
         // Store file info in localStorage for my page
         if (managementToken) {
@@ -109,14 +114,22 @@
             name: targetFile.name,
             managementToken,
             isEncrypted: isEnabledEncryption,
-            passphrase: isEnabledEncryption ? passphrase!.value : undefined
+            passphrase: isEnabledEncryption ? passphrase!.value : undefined,
           });
         }
 
         if (isEnabledEncryption) {
-          uploadStatus.updateDownloadURL(`${window.location.origin}/app/file/${fileID}`, passphrase!.value, false);
+          uploadStatus.updateDownloadURL(
+            `${window.location.origin}/app/file/${fileID}`,
+            passphrase!.value,
+            false,
+          );
         } else {
-          uploadStatus.updateDownloadURL(`${window.location.origin}/${fileID}/${encodeURIComponent(targetFile.name)}`, null, isImage);
+          uploadStatus.updateDownloadURL(
+            `${window.location.origin}/${fileID}/${encodeURIComponent(targetFile.name)}`,
+            null,
+            isImage,
+          );
         }
 
         alert("The file has been uploaded successfully.");
@@ -146,8 +159,8 @@
       }
 
       const now = Date.now();
-      const percent = Math.floor(event.loaded / event.total * 100);
-      const throughput = (event.loaded - loaded) / (now - time) * 1000;
+      const percent = Math.floor((event.loaded / event.total) * 100);
+      const throughput = ((event.loaded - loaded) / (now - time)) * 1000;
 
       time = now;
       loaded = event.loaded;
@@ -155,7 +168,7 @@
     });
 
     xhr.open("POST", "/api/file");
-  
+
     xhr.setRequestHeader("Content-Type", fileType || "application/octet-stream");
     xhr.setRequestHeader("X-Content-Name", encodeURIComponent(targetFile.name));
     xhr.setRequestHeader("X-Content-Disposable", isDisposable.toString());
@@ -169,7 +182,7 @@
     if (targetFile) {
       await handleFile(targetFile);
       // Reset the file input to allow selecting the same file again
-      file.value = '';
+      file.value = "";
     }
   };
 
@@ -188,14 +201,14 @@
   const handleDrop = async (e: DragEvent) => {
     e.preventDefault();
     dragActive = false;
-    
+
     if ($isUploading) return;
 
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
       await handleFile(files[0]);
       // Reset the file input to allow selecting the same file again
-      file.value = '';
+      file.value = "";
     }
   };
 
@@ -212,24 +225,24 @@
       <label class="passphrase-label">
         <span class="label-icon">🔐</span>
         <span class="label-text">Encryption Passphrase</span>
-        <input 
-          type="password" 
+        <input
+          type="password"
           disabled={$isUploading}
-          bind:this={passphrase} 
+          bind:this={passphrase}
           placeholder="Enter a strong passphrase..."
           class="passphrase-input"
-          onkeydown={async event => {
+          onkeydown={async (event) => {
             if (event.key === "Enter") {
               event.preventDefault();
               await uploadFile();
             }
-          }} 
+          }}
         />
       </label>
     </div>
   {/if}
 
-  <div 
+  <div
     class="drop-zone {dragActive ? 'drag-active' : ''} {$isUploading ? 'uploading' : ''}"
     bind:this={dropZone}
     ondragover={handleDragOver}
@@ -239,7 +252,7 @@
     role="button"
     tabindex="0"
     onkeydown={(e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
+      if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         handleClick();
       }
@@ -265,10 +278,10 @@
     </div>
   </div>
 
-  <input 
-    type="file" 
-    bind:this={file} 
-    disabled={$isUploading} 
+  <input
+    type="file"
+    bind:this={file}
+    disabled={$isUploading}
     onchange={uploadFile}
     class="file-input"
     aria-label="File upload input"

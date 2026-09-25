@@ -44,7 +44,7 @@ const initializeServer = async () => {
   schedule.scheduleJob("* * * * *", unlinkExpiredFiles);
 
   logger.info("Initialization completed!");
-}
+};
 
 export const handleError: HandleServerError = ({ error }) => {
   if (error instanceof Error && error.message.startsWith("Not found: ")) {

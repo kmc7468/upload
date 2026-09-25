@@ -30,8 +30,8 @@
     isPassphraseIncluded && status?.status === "uploaded" && status.passphrase
       ? `${status.downloadURL}#${encodeStringInBase64(status.passphrase)}`
       : status?.status === "uploaded"
-      ? status.downloadURL
-      : undefined
+        ? status.downloadURL
+        : undefined,
   );
 
   const updateExtension = (downloadURL: string, newExtension: string) => {
@@ -58,7 +58,11 @@
       throughput: formatThroughput(newThroughput),
     };
   };
-  export const updateDownloadURL = (newDownloadURL: string, newPassphrase: string | null, newIsImage: boolean) => {
+  export const updateDownloadURL = (
+    newDownloadURL: string,
+    newPassphrase: string | null,
+    newIsImage: boolean,
+  ) => {
     status = {
       status: "uploaded",
       downloadURL: newDownloadURL,
@@ -102,23 +106,35 @@
     <div class="status-icon">✅</div>
     <div class="status-content">
       <h4>Upload Complete!</h4>
-      
+
       <div class="download-section">
         <div class="download-label">Download URL:</div>
         <a id="download" href={realDownloadURL} class="download-link">
           {decodeURI(realDownloadURL)}
         </a>
-        
+
         <div class="download-actions">
-          <button type="button" onclick={() => navigator.clipboard.writeText(realDownloadURL)} class="copy-button">
+          <button
+            type="button"
+            onclick={() => navigator.clipboard.writeText(realDownloadURL)}
+            class="copy-button"
+          >
             📋 Copy Link
           </button>
-          
+
           {#if status.isImage && !status.passphrase}
-            <button type="button" onclick={() => goto(`${updateExtension(realDownloadURL, ".jpg")}?jpg`)} class="utility-button">
+            <button
+              type="button"
+              onclick={() => goto(`${updateExtension(realDownloadURL, ".jpg")}?jpg`)}
+              class="utility-button"
+            >
               🖼️ Convert to JPEG
             </button>
-            <button type="button" onclick={() => goto(`${updateExtension(realDownloadURL, ".png")}?png`)} class="utility-button">
+            <button
+              type="button"
+              onclick={() => goto(`${updateExtension(realDownloadURL, ".png")}?png`)}
+              class="utility-button"
+            >
               🖼️ Convert to PNG
             </button>
           {/if}
@@ -128,7 +144,7 @@
       {#if status.passphrase}
         <div class="passphrase-option">
           <label class="checkbox-label">
-            <input type="checkbox" bind:checked={isPassphraseIncluded}>
+            <input type="checkbox" bind:checked={isPassphraseIncluded} />
             <span>Include passphrase in URL and QR code</span>
           </label>
         </div>
@@ -413,7 +429,8 @@
       gap: 6px;
     }
 
-    .copy-button, .utility-button {
+    .copy-button,
+    .utility-button {
       font-size: 13px;
       padding: 8px 12px;
     }

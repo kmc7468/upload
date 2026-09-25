@@ -13,7 +13,7 @@ const determineRequiredType = (requiredType: string | null) => {
     default:
       return undefined;
   }
-}
+};
 
 export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
   const fileID = params.id;
@@ -28,13 +28,13 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
     clientAddress: getClientAddress(),
   });
 
-  return new Response(file.content, {
+  return new Response(Buffer.isBuffer(file.content) ? new Uint8Array(file.content) : file.content, {
     headers: {
       "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
       "Content-Type": file.contentType,
       "Content-Length": file.contentLength.toString(),
       "X-Content-Encryption": file.isEncrypted.toString(),
-    }
+    },
   });
 };
 
