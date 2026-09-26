@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FolderNameEditor from "$lib/FolderNameEditor.svelte";
   import { onMount } from "svelte";
   import { browser } from "$app/environment";
   import {
@@ -72,22 +73,31 @@
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete "${file.name}"?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${file.name}"${file.kind === "folder" ? " and all its files" : ""}?`,
+      )
+    ) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/file/${file.id}`, {
-        method: "DELETE",
-        headers: {
-          "X-Management-Token": file.managementToken,
+      const response = await fetch(
+        `/api/${file.kind === "folder" ? "folder" : "file"}/${file.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "X-Management-Token": file.managementToken,
+          },
         },
-      });
+      );
 
       if (response.ok) {
         removeUploadedFile(file.id);
         uploadedFiles = uploadedFiles.filter((f) => f.id !== file.id);
-        alert("File deleted successfully.");
+        alert(
+          file.kind === "folder" ? "Folder deleted successfully." : "File deleted successfully.",
+        );
       } else if (response.status === 404) {
         // 파일이 이미 삭제되었으면 만료 상태로 표시하고 passphrase 삭제 (보안)
         updateUploadedFile(file.id, { isExpired: true, passphrase: undefined });
@@ -107,15 +117,22 @@
   const checkFileExists = async (file: UploadedFile): Promise<boolean> => {
     try {
       // Management token을 사용한 정확한 파일 검증
-      const response = await fetch(`/api/file/${file.id}/verify`, {
-        method: "GET",
-        headers: {
-          "X-Management-Token": file.managementToken,
+      const response = await fetch(
+        `/api/${file.kind === "folder" ? "folder" : "file"}/${file.id}/verify`,
+        {
+          method: "GET",
+          headers: {
+            "X-Management-Token": file.managementToken,
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const result = await response.json();
+        if (file.kind === "folder" && result.exists && result.name) {
+          file.name = result.name;
+          updateUploadedFile(file.id, { name: result.name });
+        }
         return result.exists;
       }
       return false;
@@ -144,6 +161,7 @@
   };
 
   const getDownloadUrl = (file: UploadedFile) => {
+    if (file.kind === "folder") return `/app/folder/${file.id}`;
     if (file.isEncrypted) {
       return `/app/file/${file.id}`;
     } else {
@@ -240,14 +258,18 @@
             class:clickable={!file.isExpired}
             onclick={() => {
               if (!file.isExpired) {
-                window.location.href = `/app/file/${file.id}`;
+                window.location.href = `/app/${file.kind === "folder" ? "folder" : "file"}/${file.id}`;
               }
             }}
           >
             <div class="file-header">
               <div class="file-info">
                 <h3 class="file-name">
-                  {file.name}
+                  {#if file.kind === "folder"}
+                    <span class="folder-title" title={file.name}>📁 {file.name}</span>
+                  {:else}
+                    {file.name}
+                  {/if}
                   {#if file.isExpired}
                     <span class="expired-badge">⚠️ Expired</span>
                   {/if}
@@ -270,6 +292,22 @@
             </div>
 
             <div class="file-actions">
+              {#if file.kind === "folder" && !file.isExpired}
+                <div class="folder-rename">
+                  <FolderNameEditor
+                    variant="my"
+                    id={file.id}
+                    name={file.name}
+                    managementToken={file.managementToken}
+                    onsave={(name) => {
+                      uploadedFiles = uploadedFiles.map((entry) =>
+                        entry.id === file.id ? { ...entry, name } : entry,
+                      );
+                    }}
+                  />
+                </div>
+              {/if}
+
               <button
                 class="btn-secondary"
                 onclick={(e) => {
@@ -514,6 +552,13 @@
     flex-wrap: wrap;
   }
 
+  .folder-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .expired-badge {
     font-size: 0.8rem;
     color: #f56565;
@@ -566,6 +611,13 @@
     background: rgba(245, 101, 101, 0.05);
     border-radius: 6px;
     border: 1px solid rgba(245, 101, 101, 0.1);
+  }
+
+  .folder-rename {
+    min-width: 0;
+  }
+  .folder-rename:has(:global(form)) {
+    flex-basis: 100%;
   }
 
   .file-actions {

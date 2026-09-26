@@ -42,7 +42,7 @@
   <footer class="footer">
     <div class="footer-content">
       <div class="footer-info">
-        <p class="copyright">© 2024-2025. kmc7468 All rights reserved.</p>
+        <p class="copyright">© 2024-2026. Minchan Kim all rights reserved.</p>
       </div>
       <div class="footer-actions">
         <a href="/install.sh" class="install-button" target="_blank" rel="noopener noreferrer">

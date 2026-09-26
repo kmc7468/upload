@@ -3,6 +3,7 @@
   import { generateSalt, deriveBitsUsingPBKDF2, encryptUsingAES256CBC } from "$lib/cipher";
   import { MAX_FILE_SIZE, MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
   import { addUploadedFile } from "$lib/storage";
+  import { collectDroppedFiles } from "$lib/dropped-files";
   import UploadStatus from "./UploadStatus.svelte";
 
   interface Props {
@@ -15,6 +16,8 @@
 
   let passphrase: HTMLInputElement | undefined = $state();
   let file: HTMLInputElement;
+  let directory: HTMLInputElement;
+  let isReadingFiles = $state(false);
   let uploadStatus: ReturnType<typeof UploadStatus>;
   let dragActive = $state(false);
   let dropZone: HTMLElement;
@@ -177,13 +180,118 @@
     xhr.send(targetContent);
   };
 
-  const uploadFile = async () => {
-    const targetFile = file.files?.[0];
-    if (targetFile) {
-      await handleFile(targetFile);
-      // Reset the file input to allow selecting the same file again
-      file.value = "";
+  const handleFiles = async (files: File[], folderName?: string) => {
+    if ($isUploading || !files.length) return;
+    if (files.length === 1) return handleFile(files[0]);
+    if (files.length > 1000 || files.some((f) => f.size > MAX_FILE_SIZE)) {
+      alert("Choose up to 1000 files within the per-file size limit.");
+      return;
     }
+    const secret = isEnabledEncryption ? passphrase!.value : "";
+    if (isEnabledEncryption && !secret) {
+      alert("The passphrase is required.");
+      return;
+    }
+    $isUploading = true;
+    let folder: { folderID: string; managementToken: string; downloadURL: string } | undefined;
+    try {
+      uploadStatus.updateUploadProgress(0, 0);
+      const response = await fetch("/api/folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          count: files.length,
+          isDisposable,
+          isEncrypted: isEnabledEncryption,
+        }),
+      });
+      if (!response.ok) throw new Error("Could not create folder");
+      folder = await response.json();
+      const total = files.reduce((sum, f) => sum + f.size, 0);
+      let completed = 0;
+      const started = Date.now();
+      for (const target of files) {
+        let content: Blob = target;
+        if (isEnabledEncryption) {
+          uploadStatus.displayEncrypting();
+          content = new Blob([await encryptFile(target, secret)]);
+          if (content.size > MAX_FILE_SIZE) throw new Error("The encrypted file is too large.");
+        }
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", `/api/folder/${folder!.folderID}`);
+          xhr.setRequestHeader("X-Management-Token", folder!.managementToken);
+          xhr.setRequestHeader("X-Content-Name", encodeURIComponent(target.name));
+          xhr.setRequestHeader(
+            "Content-Type",
+            isEnabledEncryption
+              ? "application/octet-stream"
+              : determineFileType(target) || "application/octet-stream",
+          );
+          xhr.upload.onprogress = (event) => {
+            const loaded =
+              completed + (event.lengthComputable ? (target.size * event.loaded) / event.total : 0);
+            uploadStatus.updateUploadProgress(
+              total ? Math.floor((100 * loaded) / total) : 0,
+              (loaded / Math.max(1, Date.now() - started)) * 1000,
+            );
+          };
+          xhr.onload = () => (xhr.status === 201 ? resolve() : reject(new Error("Upload failed")));
+          xhr.onerror = () => reject(new Error("Upload failed"));
+          xhr.onabort = () => reject(new Error("Upload cancelled"));
+          xhr.send(content);
+        });
+        completed += target.size;
+      }
+      const finished = await fetch(`/api/folder/${folder!.folderID}`, {
+        method: "PATCH",
+        headers: { "X-Management-Token": folder!.managementToken },
+      });
+      if (!finished.ok) throw new Error("Could not finish upload");
+      let name = `${files[0].name} + ${files.length - 1} more`;
+      if (folderName) {
+        const renamed = await fetch(`/api/folder/${folder!.folderID}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Management-Token": folder!.managementToken,
+          },
+          body: JSON.stringify({ name: folderName }),
+        });
+        if (!renamed.ok) throw new Error("Could not name folder");
+        name = (await renamed.json()).name;
+      }
+      addUploadedFile({
+        id: folder!.folderID,
+        name,
+        kind: "folder",
+        fileCount: files.length,
+        managementToken: folder!.managementToken,
+        isEncrypted: isEnabledEncryption,
+        passphrase: secret || undefined,
+      });
+      uploadStatus.updateDownloadURL(folder!.downloadURL, secret || null, false, {
+        id: folder!.folderID,
+        name,
+        managementToken: folder!.managementToken,
+      });
+      alert("The files have been uploaded successfully.");
+    } catch {
+      if (folder)
+        await fetch(`/api/folder/${folder.folderID}`, {
+          method: "DELETE",
+          headers: { "X-Management-Token": folder.managementToken },
+        }).catch(() => {});
+      uploadStatus.displayFailure();
+      alert("An error occurred while uploading the files. Please try again.");
+    } finally {
+      $isUploading = false;
+    }
+  };
+
+  const uploadFile = async () => {
+    await handleFiles(Array.from(file.files ?? []));
+    file.value = "";
   };
 
   const handleDragOver = (e: DragEvent) => {
@@ -204,12 +312,36 @@
 
     if ($isUploading) return;
 
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0) {
-      await handleFile(files[0]);
-      // Reset the file input to allow selecting the same file again
-      file.value = "";
+    if (!e.dataTransfer) return;
+    let selection: Awaited<ReturnType<typeof collectDroppedFiles>>;
+    $isUploading = true;
+    isReadingFiles = true;
+    try {
+      selection = await collectDroppedFiles(e.dataTransfer);
+    } catch (cause) {
+      alert(
+        cause instanceof Error && cause.message === "Choose up to 1000 files."
+          ? cause.message
+          : "Could not read all files. Please select the folder again.",
+      );
+      return;
+    } finally {
+      isReadingFiles = false;
+      $isUploading = false;
     }
+    if (!selection.files.length) {
+      alert("The selected folders contain no files.");
+      return;
+    }
+    await handleFiles(selection.files, selection.folderName);
+    file.value = "";
+  };
+
+  const uploadDirectory = async () => {
+    const files = Array.from(directory.files ?? []);
+    const roots = new Set(files.map((file) => file.webkitRelativePath.split("/")[0]));
+    await handleFiles(files, roots.size === 1 ? roots.values().next().value : undefined);
+    directory.value = "";
   };
 
   const handleClick = () => {
@@ -248,31 +380,44 @@
     ondragover={handleDragOver}
     ondragleave={handleDragLeave}
     ondrop={handleDrop}
-    onclick={handleClick}
-    role="button"
-    tabindex="0"
-    onkeydown={(e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        handleClick();
-      }
-    }}
+    role="group"
+    aria-label="Upload files or folders"
   >
+    <button
+      type="button"
+      class="drop-zone-target"
+      aria-label="Select Files"
+      tabindex="-1"
+      disabled={$isUploading}
+      onclick={handleClick}
+    ></button>
     <div class="drop-zone-content">
       {#if $isUploading}
         <div class="upload-icon">⏳</div>
-        <h3>Uploading...</h3>
-        <p>Please wait while your file is being uploaded</p>
+        <h3>{isReadingFiles ? "Reading Folder..." : "Uploading..."}</h3>
+        <p>
+          {isReadingFiles
+            ? "Collecting files from your folders"
+            : "Please wait while your files are being uploaded"}
+        </p>
       {:else if dragActive}
         <div class="upload-icon">📁</div>
-        <h3>Drop your file here</h3>
+        <h3>Drop your files or folders here</h3>
         <p>Release to start uploading</p>
       {:else}
         <div class="upload-icon">📤</div>
-        <h3>Drag & Drop Files</h3>
-        <p>Or <strong>click here</strong> to select files</p>
+        <h3>Drag & Drop Files or Folders</h3>
+        <p class="selection-options">
+          Or <button type="button" class="select-source" onclick={handleClick}>select files</button>
+          <span>or</span>
+          <button type="button" class="select-source" onclick={() => directory.click()}
+            >select a folder</button
+          >
+        </p>
         <div class="file-info">
-          <span class="file-size-limit">Maximum file size: 4 GiB</span>
+          <span class="file-size-limit"
+            >Maximum file size: {(MAX_FILE_SIZE / 1024 ** 3).toLocaleString()} GiB per file</span
+          >
         </div>
       {/if}
     </div>
@@ -280,11 +425,22 @@
 
   <input
     type="file"
+    multiple
     bind:this={file}
     disabled={$isUploading}
     onchange={uploadFile}
     class="file-input"
     aria-label="File upload input"
+  />
+
+  <input
+    type="file"
+    webkitdirectory
+    bind:this={directory}
+    disabled={$isUploading}
+    onchange={uploadDirectory}
+    class="file-input"
+    aria-label="Folder upload input"
   />
 
   <UploadStatus bind:this={uploadStatus} />
@@ -343,6 +499,7 @@
   }
 
   .drop-zone {
+    position: relative;
     border: 3px dashed rgba(102, 126, 234, 0.3);
     border-radius: 20px;
     padding: 40px 32px;
@@ -377,7 +534,22 @@
     cursor: not-allowed;
   }
 
+  .drop-zone-target,
+  .drop-zone-target:hover,
+  .drop-zone-target:disabled {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border-radius: 16px;
+    box-shadow: none;
+    transform: none;
+  }
+
   .drop-zone-content {
+    position: relative;
+    pointer-events: none;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -424,12 +596,46 @@
     font-weight: 500;
   }
 
+  .selection-options {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    column-gap: 5px;
+  }
+
+  .select-source {
+    pointer-events: auto;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #667eea;
+    font: inherit;
+    font-weight: 600;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .select-source:hover {
+    color: #764ba2;
+    text-decoration: underline;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .select-source:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 4px;
+  }
+
   .file-input {
     display: none;
   }
 
   @media (max-width: 768px) {
     .drop-zone {
+      position: relative;
       padding: 48px 24px;
       min-height: 160px;
     }
@@ -453,6 +659,7 @@
 
   @media (max-width: 480px) {
     .drop-zone {
+      position: relative;
       padding: 32px 16px;
       min-height: 140px;
     }
@@ -465,7 +672,20 @@
       font-size: 18px;
     }
 
+    .drop-zone-target {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      border-radius: 16px;
+      box-shadow: none;
+      transform: none;
+    }
+
     .drop-zone-content {
+      position: relative;
+      pointer-events: none;
       gap: 12px;
     }
   }

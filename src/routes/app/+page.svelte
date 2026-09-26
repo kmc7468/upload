@@ -75,7 +75,7 @@
             <input type="checkbox" bind:checked={isDisposable} disabled={$isUploading} />
             <span class="option-label">
               <strong>Single Download</strong>
-              <small>File will be deleted after first download</small>
+              <small>Files will be deleted after one complete download</small>
             </span>
           </label>
 
@@ -84,7 +84,7 @@
               <input type="checkbox" bind:checked={isEnabledEncryption} disabled={$isUploading} />
               <span class="option-label">
                 <strong>End-to-End Encryption</strong>
-                <small>File will be encrypted before uploading</small>
+                <small>Files will be encrypted before uploading</small>
               </span>
             </label>
           {/if}

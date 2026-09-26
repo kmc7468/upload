@@ -39,6 +39,14 @@ const initializeServer = async () => {
   // 데이터베이스 초기화
   await migrateDatabase();
   await synchronizeWithDatabase();
+  await unlinkExpiredFiles();
+
+  // Clean up temporary archives left by versions that buffered downloads on disk.
+  for (const entry of fs.readdirSync(loadenv.CACHE_DIR, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name.startsWith("archive-")) {
+      fs.rmSync(path.join(loadenv.CACHE_DIR, entry.name), { recursive: true, force: true });
+    }
+  }
 
   // Cron Job 등록
   schedule.scheduleJob("* * * * *", unlinkExpiredFiles);

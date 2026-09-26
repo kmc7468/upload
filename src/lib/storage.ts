@@ -1,5 +1,7 @@
 export interface UploadedFile {
   id: string;
+  kind?: "file" | "folder";
+  fileCount?: number;
   name: string;
   managementToken: string;
   uploadedAt: Date;

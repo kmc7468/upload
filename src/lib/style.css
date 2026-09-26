@@ -54,8 +54,17 @@ code {
   font-size: 0.9em;
 }
 
+/* Form controls use the same typeface as their surrounding links and labels. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 /* Button styles */
 button {
+  line-height: inherit;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
   border-radius: 12px;

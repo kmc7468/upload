@@ -1,4 +1,5 @@
-import { error, text } from "@sveltejs/kit";
+import { findFolder, folderDownloadResponse, deleteFolder } from "$lib/server/folders";
+import { error, redirect, text } from "@sveltejs/kit";
 import { ID_REGEX } from "$lib/server/loadenv";
 import {
   fileDownloadHandler,
@@ -7,11 +8,24 @@ import {
 } from "$lib/server/services/files";
 import type { RequestHandler } from "./$types";
 
-export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
+export const GET: RequestHandler = async ({ params, request, url, cookies, getClientAddress }) => {
   const fileID = params.a;
   const fileName = params.b;
   if (!ID_REGEX.test(fileID)) {
     error(404);
+  }
+
+  if (await findFolder(fileID)) {
+    if (request.headers.get("Accept")?.includes("text/html") && !url.search && !fileName) {
+      redirect(307, `/app/folder/${fileID}`);
+    }
+    if (
+      fileName?.endsWith(".tar") &&
+      !url.searchParams.has("zip") &&
+      !url.searchParams.has("format")
+    )
+      url.searchParams.set("format", "tar");
+    return folderDownloadResponse(fileID, request, url, cookies, getClientAddress);
   }
 
   const requiredType = (() => {
@@ -96,10 +110,21 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
     error(400);
   }
 
+  if (await findFolder(fileID)) {
+    await deleteFolder(fileID, managementToken);
+    return new Response(null, { status: 204 });
+  }
   await fileDeleteHandler({
     fileID,
     managementToken,
   });
 
   return new Response(null, { status: 204 });
+};
+
+// Preserve legacy file HEAD behavior, while preventing folder probes from consuming a download.
+export const HEAD: RequestHandler = async (event) => {
+  if (await findFolder(event.params.a))
+    return new Response(null, { status: 405, headers: { Allow: "GET" } });
+  return GET(event);
 };

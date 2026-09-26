@@ -2,15 +2,10 @@ import type { Selectable, Insertable, Updateable } from "kysely";
 
 export interface FileTable {
   id: string;
-  uploadedAt: number; // timestamp
-  expireAt: number; // timestamp
-  managementToken: string;
-
+  folderId: string;
   name: string;
   contentType: string;
-
-  isDisposable: number; // boolean
-  isEncrypted: number; // boolean
+  position: number;
 }
 
 export type File = Selectable<FileTable>;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FolderNameEditor from "$lib/FolderNameEditor.svelte";
   import QRCode from "qrcode";
   import { goto } from "$app/navigation";
   import { encodeStringInBase64 } from "$lib/cipher";
@@ -16,6 +17,7 @@
     | {
         status: "uploaded";
         downloadURL: string;
+        folder?: { id: string; name: string; managementToken: string };
         isImage: boolean;
         passphrase: string | null;
       }
@@ -62,9 +64,11 @@
     newDownloadURL: string,
     newPassphrase: string | null,
     newIsImage: boolean,
+    folder?: { id: string; name: string; managementToken: string },
   ) => {
     status = {
       status: "uploaded",
+      folder,
       downloadURL: newDownloadURL,
       isImage: newIsImage,
       passphrase: newPassphrase,
@@ -107,8 +111,17 @@
     <div class="status-content">
       <h4>Upload Complete!</h4>
 
+      {#if status.folder}
+        <FolderNameEditor
+          {...status.folder}
+          expanded
+          onsave={(name) => {
+            if (status?.status === "uploaded" && status.folder) status.folder.name = name;
+          }}
+        />
+      {/if}
       <div class="download-section">
-        <div class="download-label">Download URL:</div>
+        <div class="download-label">Download URL</div>
         <a id="download" href={realDownloadURL} class="download-link">
           {decodeURI(realDownloadURL)}
         </a>
@@ -217,6 +230,8 @@
   }
 
   .status-content {
+    --editor-label-size: 14px;
+    min-width: 0;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -272,7 +287,7 @@
   .download-label {
     font-weight: 600;
     color: #333;
-    font-size: 14px;
+    font-size: var(--editor-label-size);
   }
 
   .download-link {
@@ -412,8 +427,13 @@
       gap: 8px;
     }
 
+    .status-content {
+      --editor-label-size: 13px;
+      --upload-control-font: 13px;
+      --upload-control-height: 37px;
+    }
+
     .download-label {
-      font-size: 13px;
       text-align: left;
     }
 

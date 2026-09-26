@@ -7,6 +7,7 @@
     deriveBitsUsingPBKDF2,
     decryptUsingAES256CBC,
   } from "$lib/cipher";
+  import { getUploadedFiles } from "$lib/storage";
   import { formatThroughput } from "$lib/utils";
 
   import "$lib/style.css";
@@ -118,9 +119,25 @@
 
     if (!data.file.isEncrypted) return;
 
-    passphrase = decodeStringFromBase64(window.location.hash.slice(1));
+    const fromURL = !!window.location.hash;
+    try {
+      passphrase = fromURL
+        ? decodeStringFromBase64(window.location.hash.slice(1))
+        : getUploadedFiles().find(
+            (stored) =>
+              !stored.isExpired &&
+              (data.file!.folderId
+                ? stored.kind === "folder" && stored.id === data.file!.folderId
+                : stored.kind !== "folder" && stored.id === data.file!.id),
+          )?.passphrase || "";
+    } catch {
+      // Invalid URL fragments or unavailable storage still allow manual entry.
+      passphrase = "";
+    }
 
-    if (!passphrase) return;
+    // Saved passphrases only fill the input, so opening a page does not consume
+    // a Single Download file. Keep automatic download for explicit URL secrets.
+    if (!fromURL || !passphrase) return;
 
     await tick();
     await downloadAndDecryptFile();
@@ -169,6 +186,9 @@
             </div>
           {/if}
         </div>
+        {#if data.file.folderId}
+          <a href={`/app/folder/${data.file.folderId}`} class="folder-button">📁 Open Folder</a>
+        {/if}
       </div>
 
       {#if data.file.isEncrypted}
@@ -427,7 +447,30 @@
     opacity: 0.8;
   }
 
+  .folder-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 12px;
+    background: #667eea;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  }
+
+  .folder-button:hover {
+    background: #5a67d8;
+    color: white;
+  }
+
   .file-details {
+    min-width: 0;
     flex: 1;
   }
 
