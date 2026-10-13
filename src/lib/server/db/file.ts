@@ -19,7 +19,4 @@ export const findFile = async (id: string) =>
     .where("folder.expireAt", ">", Date.now())
     .executeTakeFirst();
 
-export const getAllFileIDs = async () => {
-  const result = await db().selectFrom("file").select("id").execute();
-  return result.map((row) => row.id);
-};
+export const allFiles = () => db().selectFrom("file").select(["id", "folderId"]).execute();

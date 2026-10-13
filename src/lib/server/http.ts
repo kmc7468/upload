@@ -1,7 +1,7 @@
 import { error, isHttpError, text, type RequestEvent } from "@sveltejs/kit";
 import { STATUS_CODES } from "node:http";
 import { contentSecurityPolicy } from "./content-type";
-import type { FileType } from "./filesystem";
+import type { FileType } from "./images";
 
 export interface ServedFile {
   name: string;

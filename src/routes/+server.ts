@@ -1,19 +1,8 @@
 import { text } from "@sveltejs/kit";
 import { MAX_FILE_SIZE } from "$lib/constants";
 import { FILE_EXPIRY } from "$lib/server/loadenv";
-import { formatSize } from "$lib/utils";
+import { formatDuration, formatSize } from "$lib/utils";
 import type { RequestHandler } from "./$types";
-
-const formatDuration = (milliseconds: number) => {
-  const seconds = Math.round(milliseconds / 1000);
-  const [value, unit] =
-    seconds % 3600 === 0
-      ? [seconds / 3600, "hour"]
-      : seconds % 60 === 0
-        ? [seconds / 60, "minute"]
-        : [seconds, "second"];
-  return `${value} ${unit}${value === 1 ? "" : "s"}`;
-};
 
 const usage = (origin: string) => `Minchan's Upload
 

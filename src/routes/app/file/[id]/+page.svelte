@@ -2,12 +2,10 @@
   import FileSaver from "file-saver";
   import { onMount, tick } from "svelte";
   import { browser } from "$app/environment";
-  import {
-    decodeStringFromBase64,
-    deriveBitsUsingPBKDF2,
-    decryptUsingAES256CBC,
-  } from "$lib/cipher";
+  import { decryptOpenSSL } from "$lib/cipher";
   import { getUploadedFiles } from "$lib/storage";
+  import { throughputMeter, transfer } from "$lib/transfer";
+  import { convertedPath, downloadPath, passphraseFromHash } from "$lib/urls";
   import { formatThroughput } from "$lib/utils";
 
   import "$lib/style.css";
@@ -20,58 +18,25 @@
   let downloadStatus = $state("");
   let passphrase = $state("");
 
-  const downloadEncryptedFile = () => {
-    return new Promise<ArrayBuffer>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.responseType = "arraybuffer";
-
-      let time: number;
-      let loaded: number;
-
-      xhr.addEventListener("loadstart", () => {
-        time = Date.now();
-        loaded = 0;
-      });
-      xhr.addEventListener("load", () => {
-        if (xhr.status === 200) {
-          resolve(xhr.response as ArrayBuffer);
-        } else {
-          reject();
-        }
-      });
-      xhr.addEventListener("error", reject);
-
-      xhr.addEventListener("progress", (event) => {
-        if (!event.lengthComputable) {
-          return;
-        }
-
-        const now = Date.now();
-        const percent = Math.round((event.loaded / event.total) * 100);
-        const throughput = ((event.loaded - loaded) / (now - time)) * 1000;
-
-        time = now;
-        loaded = event.loaded;
-
-        downloadStatus = `Downloading the encrypted file... (${percent}%, ${formatThroughput(throughput)})`;
-      });
-
-      xhr.open("GET", downloadURL);
-      xhr.send();
+  const downloadEncryptedFile = async () => {
+    const meter = throughputMeter();
+    const xhr = await transfer("GET", downloadURL, {
+      responseType: "arraybuffer",
+      onProgress: (loaded, total) => {
+        const percent = Math.round((loaded / total) * 100);
+        downloadStatus = `Downloading the encrypted file... (${percent}%, ${formatThroughput(meter(loaded))})`;
+      },
     });
+    if (xhr.status !== 200) {
+      throw new Error("Download failed");
+    }
+
+    return xhr.response as ArrayBuffer;
   };
 
   const decryptFile = async (encryptedFile: ArrayBuffer) => {
     downloadStatus = "Decrypting the file...";
-
-    const salt = new Uint8Array(encryptedFile.slice(8, 16));
-    const key = await deriveBitsUsingPBKDF2(passphrase, salt, 256 + 128);
-    const file = await decryptUsingAES256CBC(
-      encryptedFile.slice(16),
-      key.slice(0, 32),
-      key.slice(32, 48),
-    );
-
+    const file = await decryptOpenSSL(encryptedFile, passphrase);
     downloadStatus = "Succeeded in decrypting the file!";
     return file;
   };
@@ -115,14 +80,14 @@
   onMount(async () => {
     if (!data.file) return;
 
-    downloadURL = `${window.location.origin}/${data.file.id}/${encodeURIComponent(data.file.name)}`;
+    downloadURL = `${window.location.origin}${downloadPath(data.file.id, data.file.name)}`;
 
     if (!data.file.isEncrypted) return;
 
     const fromURL = !!window.location.hash;
     try {
       passphrase = fromURL
-        ? decodeStringFromBase64(window.location.hash.slice(1))
+        ? passphraseFromHash(window.location.hash)
         : getUploadedFiles().find(
             (stored) =>
               !stored.isExpired &&
@@ -322,8 +287,12 @@
               <div class="conversion-options">
                 <h4>Image Conversion</h4>
                 <div class="conversion-buttons">
-                  <a href={`${downloadURL}?jpg`} class="conversion-button"> 🖼️ Convert to JPEG </a>
-                  <a href={`${downloadURL}?png`} class="conversion-button"> 🖼️ Convert to PNG </a>
+                  <a href={convertedPath(downloadURL, "jpg")} class="conversion-button">
+                    🖼️ Convert to JPEG
+                  </a>
+                  <a href={convertedPath(downloadURL, "png")} class="conversion-button">
+                    🖼️ Convert to PNG
+                  </a>
                 </div>
               </div>
             {/if}
@@ -388,7 +357,6 @@
   }
 
   .section-title {
-    margin: 0 0 8px 0;
     margin: 0;
     font-size: 32px;
     font-weight: 700;
@@ -401,50 +369,6 @@
 
   .section-icon {
     font-size: 36px;
-  }
-
-  .error-card {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 32px;
-    background: rgba(254, 242, 242, 0.9);
-    border: 2px solid rgba(239, 68, 68, 0.2);
-    backdrop-filter: blur(10px);
-  }
-
-  .error-icon {
-    font-size: 48px;
-    flex-shrink: 0;
-    color: #dc2626;
-  }
-
-  .error-content h3 {
-    margin: 0 0 8px 0;
-    color: #991b1b;
-    font-size: 24px;
-    font-weight: 700;
-  }
-
-  .error-content p {
-    margin: 0;
-    color: #7c2d12;
-    font-size: 16px;
-    line-height: 1.5;
-    font-weight: 500;
-  }
-
-  .file-info-card {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 24px;
-  }
-
-  .file-icon {
-    font-size: 48px;
-    flex-shrink: 0;
-    opacity: 0.8;
   }
 
   .folder-button {
@@ -633,43 +557,6 @@
     color: #ef4444;
   }
 
-  .download-section-card {
-    padding: 32px;
-  }
-
-  .download-header {
-    text-align: center;
-    margin-bottom: 24px;
-  }
-
-  .download-header h3 {
-    margin: 0 0 12px 0;
-    font-size: 24px;
-    font-weight: 600;
-    color: #333;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .download-description {
-    margin: 0;
-    color: #666;
-    font-size: 16px;
-    line-height: 1.5;
-  }
-
-  .download-icon {
-    font-size: 28px;
-  }
-
-  .download-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
   .download-link-section {
     display: flex;
     flex-direction: column;
@@ -737,35 +624,10 @@
     color: white;
   }
 
-  .direct-download-button {
-    background: #22c55e;
-    color: white;
-  }
-
   .copy-button:hover,
   .direct-download-button:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  }
-
-  .conversion-options {
-    padding: 20px;
-    background: rgba(102, 126, 234, 0.05);
-    border: 1px solid rgba(102, 126, 234, 0.15);
-    border-radius: 12px;
-  }
-
-  .conversion-options h4 {
-    margin: 0 0 12px 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
-  }
-
-  .conversion-buttons {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
   }
 
   .conversion-button {
@@ -801,94 +663,12 @@
     border-radius: 8px;
   }
 
-  .curl-label {
-    display: block;
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
-
-  .curl-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .curl-command-inline {
-    flex: 1;
-    display: block;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
-    font-size: 12px;
-    line-height: 1.4;
-    overflow-x: auto;
-    white-space: nowrap;
-    color: #374151;
-  }
-
-  .curl-copy-btn {
-    flex-shrink: 0;
-    padding: 8px 10px;
-    background: #667eea;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .curl-copy-btn:hover {
-    background: #5a67d8;
-    transform: translateY(-1px);
-  }
-
-  .info-section {
-    margin-top: 24px;
-  }
-
-  .info-section {
-    margin-top: 24px;
-  }
-
   .info-card {
     text-align: center;
     padding: 24px;
   }
 
-  .info-card h3 {
-    margin: 0 0 12px 0;
-    color: #333;
-    font-size: 18px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .info-icon {
-    font-size: 24px;
-  }
-
-  .info-card p {
-    margin: 0;
-    color: #666;
-    line-height: 1.6;
-  }
-
   @media (max-width: 768px) {
-    .main {
-      gap: 32px;
-    }
-
     .section-header {
       margin-bottom: 0;
     }
@@ -899,24 +679,8 @@
       gap: 8px;
     }
 
-    .file-info-card {
-      flex-direction: column;
-      text-align: center;
-      gap: 16px;
-    }
-
     .decrypt-section {
       padding: 24px;
-    }
-
-    .download-section-card {
-      padding: 24px;
-    }
-
-    .download-header h3 {
-      font-size: 20px;
-      flex-direction: column;
-      gap: 4px;
     }
 
     .download-actions {
@@ -932,10 +696,6 @@
       display: none;
     }
 
-    .conversion-buttons {
-      flex-direction: column;
-    }
-
     .conversion-button {
       min-width: unset;
     }
@@ -944,12 +704,6 @@
   @media (max-width: 480px) {
     .section-title {
       font-size: 24px;
-    }
-
-    .error-card {
-      flex-direction: column;
-      text-align: center;
-      padding: 24px;
     }
 
     .file-name {

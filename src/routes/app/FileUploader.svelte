@@ -1,9 +1,12 @@
 <script lang="ts">
   import { type Writable } from "svelte/store";
-  import { generateSalt, deriveBitsUsingPBKDF2, encryptUsingAES256CBC } from "$lib/cipher";
+  import { encryptOpenSSL } from "$lib/cipher";
   import { MAX_FILE_SIZE, MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
   import { addUploadedFile } from "$lib/storage";
   import { collectDroppedFiles } from "$lib/dropped-files";
+  import { throughputMeter, transfer } from "$lib/transfer";
+  import { fileSharePath } from "$lib/urls";
+  import { formatSize } from "$lib/utils";
   import UploadStatus from "./UploadStatus.svelte";
 
   interface Props {
@@ -46,21 +49,8 @@
     }
   };
 
-  const encryptFile = async (file: File, passphrase: string) => {
-    const saltPrefix = new TextEncoder().encode("Salted__");
-    const salt = generateSalt(8); // For compatibility with OpenSSL
-    const key = await deriveBitsUsingPBKDF2(passphrase, salt, 256 + 128);
-
-    const data = await file.arrayBuffer();
-    const encryptedData = await encryptUsingAES256CBC(data, key.slice(0, 32), key.slice(32, 48));
-
-    const result = new Uint8Array(saltPrefix.length + salt.length + encryptedData.byteLength);
-    result.set(saltPrefix, 0);
-    result.set(salt, saltPrefix.length);
-    result.set(new Uint8Array(encryptedData), saltPrefix.length + salt.length);
-
-    return result;
-  };
+  const encryptFile = async (file: File, secret: string) =>
+    new Blob([await encryptOpenSSL(await file.arrayBuffer(), secret)]);
 
   const handleFile = async (targetFile: File) => {
     if (!targetFile) {
@@ -73,14 +63,14 @@
       return;
     }
 
-    let targetContent: File | Blob = targetFile;
+    let targetContent: Blob = targetFile;
 
     if (isEnabledEncryption) {
       try {
         uploadStatus.displayEncrypting();
         $isUploading = true;
 
-        targetContent = new Blob([await encryptFile(targetFile, passphrase!.value)]);
+        targetContent = await encryptFile(targetFile, passphrase!.value);
         if (targetContent.size > MAX_FILE_SIZE) {
           uploadStatus.displayFailure();
           alert("The encrypted file is too large.");
@@ -97,92 +87,65 @@
       }
     }
 
-    const xhr = new XMLHttpRequest();
     const fileType = isEnabledEncryption ? "" : determineFileType(targetFile);
-
-    xhr.addEventListener("loadstart", () => {
-      $isUploading = true;
-    });
-    xhr.addEventListener("load", async () => {
-      if (xhr.status === 201) {
-        // Location is the download URL, /<id>/<name>.
-        const fileID = new URL(
-          xhr.getResponseHeader("Location")!,
-          window.location.origin,
-        ).pathname.split("/")[1];
-        const managementToken = xhr.getResponseHeader("X-Management-Token");
-        const isImage =
-          fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
-
-        // Store file info in localStorage for my page
-        if (managementToken) {
-          addUploadedFile({
-            id: fileID,
-            name: targetFile.name,
-            managementToken,
-            isEncrypted: isEnabledEncryption,
-            passphrase: isEnabledEncryption ? passphrase!.value : undefined,
-          });
-        }
-
-        if (isEnabledEncryption) {
-          uploadStatus.updateDownloadURL(
-            `${window.location.origin}/app/file/${fileID}`,
-            passphrase!.value,
-            false,
-          );
-        } else {
-          uploadStatus.updateDownloadURL(
-            `${window.location.origin}/${fileID}/${encodeURIComponent(targetFile.name)}`,
-            null,
-            isImage,
-          );
-        }
-
-        alert("The file has been uploaded successfully.");
-      } else {
-        uploadStatus.displayFailure();
-        alert("An error occurred while uploading the file.");
-      }
-    });
-    xhr.addEventListener("error", async () => {
-      uploadStatus.displayFailure();
-      alert("An error occurred while uploading the file.");
-    });
-    xhr.addEventListener("loadend", () => {
-      $isUploading = false;
-    });
-
-    let time: number;
-    let loaded: number;
-
-    xhr.upload.addEventListener("loadstart", () => {
-      time = Date.now();
-      loaded = 0;
-    });
-    xhr.upload.addEventListener("progress", (event) => {
-      if (!event.lengthComputable) {
-        return;
-      }
-
-      const now = Date.now();
-      const percent = Math.floor((event.loaded / event.total) * 100);
-      const throughput = ((event.loaded - loaded) / (now - time)) * 1000;
-
-      time = now;
-      loaded = event.loaded;
-      uploadStatus.updateUploadProgress(percent, throughput);
-    });
-
+    const meter = throughputMeter();
     // Upload through the same endpoint as curl -T, so the web and the command line
     // cannot drift apart.
     const options = `${isDisposable ? "d" : ""}${isEnabledEncryption ? "e" : ""}`;
     const name = encodeURIComponent(targetFile.name);
-    xhr.open("PUT", options ? `/${options}/${name}` : `/${name}`);
 
-    xhr.setRequestHeader("Content-Type", fileType || "application/octet-stream");
+    let xhr: XMLHttpRequest | undefined;
+    $isUploading = true;
+    try {
+      xhr = await transfer("PUT", options ? `/${options}/${name}` : `/${name}`, {
+        headers: { "Content-Type": fileType || "application/octet-stream" },
+        body: targetContent,
+        onProgress: (loaded, total) => {
+          uploadStatus.updateUploadProgress(Math.floor((loaded / total) * 100), meter(loaded));
+        },
+      });
+    } catch {
+      // A network failure is reported below like any other failed upload.
+    } finally {
+      $isUploading = false;
+    }
+    if (xhr?.status !== 201) {
+      uploadStatus.displayFailure();
+      alert("An error occurred while uploading the file.");
+      return;
+    }
 
-    xhr.send(targetContent);
+    // Location is the download URL, /<id>/<name>.
+    const fileID = new URL(
+      xhr.getResponseHeader("Location")!,
+      window.location.origin,
+    ).pathname.split("/")[1];
+    const managementToken = xhr.getResponseHeader("X-Management-Token");
+    const isImage = fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
+
+    // Store file info in localStorage for my page
+    if (managementToken) {
+      addUploadedFile({
+        id: fileID,
+        name: targetFile.name,
+        managementToken,
+        isEncrypted: isEnabledEncryption,
+        passphrase: isEnabledEncryption ? passphrase!.value : undefined,
+      });
+    }
+
+    const path = fileSharePath({
+      id: fileID,
+      name: targetFile.name,
+      isEncrypted: isEnabledEncryption,
+    });
+    uploadStatus.updateDownloadURL(
+      `${window.location.origin}${path}`,
+      isEnabledEncryption ? passphrase!.value : null,
+      isImage,
+    );
+
+    alert("The file has been uploaded successfully.");
   };
 
   const handleFiles = async (files: File[], folderName?: string) => {
@@ -213,39 +176,34 @@
       if (!response.ok) throw new Error("Could not create folder");
       folder = await response.json();
       const total = files.reduce((sum, f) => sum + f.size, 0);
+      const meter = throughputMeter();
       let completed = 0;
-      const started = Date.now();
       for (const target of files) {
         let content: Blob = target;
         if (isEnabledEncryption) {
           uploadStatus.displayEncrypting();
-          content = new Blob([await encryptFile(target, secret)]);
+          content = await encryptFile(target, secret);
           if (content.size > MAX_FILE_SIZE) throw new Error("The encrypted file is too large.");
         }
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", `/api/folder/${folder!.folderID}`);
-          xhr.setRequestHeader("X-Management-Token", folder!.managementToken);
-          xhr.setRequestHeader("X-Content-Name", encodeURIComponent(target.name));
-          xhr.setRequestHeader(
-            "Content-Type",
-            isEnabledEncryption
+        const xhr = await transfer("POST", `/api/folder/${folder!.folderID}`, {
+          headers: {
+            "X-Management-Token": folder!.managementToken,
+            "X-Content-Name": encodeURIComponent(target.name),
+            "Content-Type": isEnabledEncryption
               ? "application/octet-stream"
               : determineFileType(target) || "application/octet-stream",
-          );
-          xhr.upload.onprogress = (event) => {
-            const loaded =
-              completed + (event.lengthComputable ? (target.size * event.loaded) / event.total : 0);
+          },
+          body: content,
+          onProgress: (sent, size) => {
+            // Encryption changes the size, so progress is scaled to the original file.
+            const loaded = completed + (target.size * sent) / size;
             uploadStatus.updateUploadProgress(
               total ? Math.floor((100 * loaded) / total) : 0,
-              (loaded / Math.max(1, Date.now() - started)) * 1000,
+              meter(loaded),
             );
-          };
-          xhr.onload = () => (xhr.status === 201 ? resolve() : reject(new Error("Upload failed")));
-          xhr.onerror = () => reject(new Error("Upload failed"));
-          xhr.onabort = () => reject(new Error("Upload cancelled"));
-          xhr.send(content);
+          },
         });
+        if (xhr.status !== 201) throw new Error("Upload failed");
         completed += target.size;
       }
       const finished = await fetch(`/api/folder/${folder!.folderID}`, {
@@ -421,7 +379,7 @@
         </p>
         <div class="file-info">
           <span class="file-size-limit"
-            >Maximum file size: {(MAX_FILE_SIZE / 1024 ** 3).toLocaleString()} GiB per file</span
+            >Maximum file size: {formatSize(MAX_FILE_SIZE)} per file</span
           >
         </div>
       {/if}

@@ -6,11 +6,7 @@ import {
   managementTokenOf,
 } from "$lib/server/http";
 import { ID_REGEX } from "$lib/server/loadenv";
-import {
-  fileDownloadHandler,
-  fileDeleteHandler,
-  fileInspectHandler,
-} from "$lib/server/services/files";
+import { deleteFile, downloadFile, inspectFile } from "$lib/server/services/files";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ params, url, getClientAddress }) => {
@@ -19,12 +15,7 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
     error(404);
   }
 
-  const file = await fileDownloadHandler({
-    fileID,
-    requiredType: conversionOf(url),
-
-    clientAddress: getClientAddress(),
-  });
+  const file = await downloadFile(fileID, conversionOf(url), getClientAddress());
 
   return fileResponse(file, contentDisposition("attachment", file.name));
 };
@@ -36,10 +27,7 @@ export const HEAD: RequestHandler = async ({ params, url }) => {
     error(404);
   }
 
-  const file = await fileInspectHandler({
-    fileID,
-    requiredType: conversionOf(url),
-  });
+  const file = await inspectFile(fileID, conversionOf(url));
   return fileResponse(file, contentDisposition("attachment", file.name));
 };
 
@@ -54,10 +42,7 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
     error(400);
   }
 
-  await fileDeleteHandler({
-    fileID,
-    managementToken,
-  });
+  await deleteFile(fileID, managementToken);
 
   return new Response(null, { status: 204 });
 };

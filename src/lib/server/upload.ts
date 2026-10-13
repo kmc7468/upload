@@ -1,6 +1,6 @@
 import { error, text, type RequestEvent } from "@sveltejs/kit";
 import { plainTextErrors } from "./http";
-import { fileUploadHandler } from "./services/files";
+import { uploadFile } from "./services/files";
 
 const isValidFileAttr = (fileAttr: string) => {
   return fileAttr.split("").every((char) => "de".includes(char));
@@ -16,7 +16,7 @@ export const uploadResponse = (fileName: string, fileAttr?: string) =>
     const isDisposable = fileAttr?.includes("d") ?? false;
     const isEncrypted = fileAttr?.includes("e") ?? false;
 
-    const { fileID, downloadURL, managementToken } = await fileUploadHandler({
+    const { fileID, managementToken } = await uploadFile({
       fileName,
       contentType: request.headers.get("Content-Type"),
       contentLength: request.headers.get("Content-Length"),
@@ -24,10 +24,10 @@ export const uploadResponse = (fileName: string, fileAttr?: string) =>
       isDisposable,
       isEncrypted,
 
-      url,
       body: request.body,
       clientAddress: getClientAddress(),
     });
+    const downloadURL = `${url.origin}/${fileID}/${encodeURIComponent(fileName)}`;
 
     return text(
       isEncrypted

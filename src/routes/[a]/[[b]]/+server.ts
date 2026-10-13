@@ -1,6 +1,5 @@
-import { findFolder, folderDownloadResponse, deleteFolder } from "$lib/server/folders";
-import { error, redirect } from "@sveltejs/kit";
-import { convertedName, type FileType } from "$lib/server/filesystem";
+import { error, redirect, type Cookies } from "@sveltejs/kit";
+import { findFolder } from "$lib/server/db/folder";
 import {
   contentDisposition,
   conversionOf,
@@ -8,12 +7,10 @@ import {
   managementTokenOf,
   plainTextErrors,
 } from "$lib/server/http";
+import { convertedName, type FileType } from "$lib/server/images";
 import { ID_REGEX } from "$lib/server/loadenv";
-import {
-  fileDownloadHandler,
-  fileDeleteHandler,
-  fileInspectHandler,
-} from "$lib/server/services/files";
+import { deleteFile, downloadFile, inspectFile } from "$lib/server/services/files";
+import { deleteFolder, downloadFolder } from "$lib/server/services/folders";
 import { uploadResponse } from "$lib/server/upload";
 import type { RequestHandler } from "./$types";
 
@@ -32,38 +29,89 @@ const dispositionOf = (storedName: string, urlName?: string, requiredType?: File
   );
 };
 
-export const GET: RequestHandler = plainTextErrors(
-  async ({ params, request, url, cookies, getClientAddress }) => {
-    const fileID = params.a;
-    const fileName = params.b;
-    if (!ID_REGEX.test(fileID)) {
-      error(404, NOT_FOUND);
-    }
+// curl gets tar, which it can extract while streaming; browsers get ZIP. A .tar name
+// or ?format= overrides this, and ?zip forces ZIP.
+const archiveFormatOf = (request: Request, url: URL, urlName?: string) => {
+  const format =
+    (url.searchParams.has("zip") ? "zip" : url.searchParams.get("format")) ||
+    (urlName?.endsWith(".tar") ? "tar" : undefined) ||
+    (/curl\//i.test(request.headers.get("User-Agent") || "") ? "tar" : "zip");
+  if (format !== "zip" && format !== "tar") {
+    error(400, `Unsupported format "${format}". Use zip or tar.`);
+  }
+  return format;
+};
 
-    if (await findFolder(fileID)) {
-      if (request.headers.get("Accept")?.includes("text/html") && !url.search && !fileName) {
-        redirect(307, `/app/folder/${fileID}`);
-      }
-      if (
-        fileName?.endsWith(".tar") &&
-        !url.searchParams.has("zip") &&
-        !url.searchParams.has("format")
-      )
-        url.searchParams.set("format", "tar");
-      return folderDownloadResponse(fileID, request, url, cookies, getClientAddress);
-    }
+// The folder page downloads through a hidden frame and polls for this cookie to
+// learn whether the download started, without buffering the archive itself.
+const notifyFolderDownload = (
+  cookies: Cookies,
+  url: URL,
+  id: string,
+  state: "started" | "failed",
+) => {
+  const token = url.searchParams.get("downloadToken");
+  if (token && /^[0-9a-f-]{36}$/i.test(token)) {
+    cookies.set(`folder-download-${token}`, state, {
+      path: `/app/folder/${id}`,
+      httpOnly: false,
+      secure: url.protocol === "https:",
+      sameSite: "strict",
+      maxAge: 60,
+    });
+  }
+};
 
-    const requiredType = conversionOf(url);
-    const file = await fileDownloadHandler({
-      fileID,
-      requiredType,
-
+const folderResponse = async (
+  { request, url, cookies, getClientAddress }: Parameters<RequestHandler>[0],
+  id: string,
+  urlName?: string,
+) => {
+  try {
+    const format = archiveFormatOf(request, url, urlName);
+    const archive = await downloadFolder(id, {
+      format,
+      type: conversionOf(url),
+      fileIDs: url.searchParams.getAll("file"),
+      signal: request.signal,
       clientAddress: getClientAddress(),
     });
+    notifyFolderDownload(cookies, url, id, "started");
+    return new Response(archive.body, {
+      headers: {
+        "Content-Type": format === "zip" ? "application/zip" : "application/x-tar",
+        "Content-Disposition": contentDisposition("attachment", archive.filename),
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",
+        Vary: "User-Agent",
+      },
+    });
+  } catch (cause) {
+    notifyFolderDownload(cookies, url, id, "failed");
+    throw cause;
+  }
+};
 
-    return fileResponse(file, dispositionOf(file.name, fileName, requiredType));
-  },
-);
+export const GET: RequestHandler = plainTextErrors(async (event) => {
+  const { params, request, url, getClientAddress } = event;
+  const fileID = params.a;
+  const fileName = params.b;
+  if (!ID_REGEX.test(fileID)) {
+    error(404, NOT_FOUND);
+  }
+
+  if (await findFolder(fileID)) {
+    if (request.headers.get("Accept")?.includes("text/html") && !url.search && !fileName) {
+      redirect(307, `/app/folder/${fileID}`);
+    }
+    return folderResponse(event, fileID, fileName);
+  }
+
+  const requiredType = conversionOf(url);
+  const file = await downloadFile(fileID, requiredType, getClientAddress());
+
+  return fileResponse(file, dispositionOf(file.name, fileName, requiredType));
+});
 
 const upload: RequestHandler = (event) =>
   event.params.b
@@ -88,10 +136,7 @@ export const DELETE: RequestHandler = plainTextErrors(async ({ request, params }
     await deleteFolder(fileID, managementToken);
     return new Response(null, { status: 204 });
   }
-  await fileDeleteHandler({
-    fileID,
-    managementToken,
-  });
+  await deleteFile(fileID, managementToken);
 
   return new Response(null, { status: 204 });
 });
@@ -108,6 +153,6 @@ export const HEAD: RequestHandler = plainTextErrors(async ({ params, url }) => {
   }
 
   const requiredType = conversionOf(url);
-  const file = await fileInspectHandler({ fileID, requiredType });
+  const file = await inspectFile(fileID, requiredType);
   return fileResponse(file, dispositionOf(file.name, params.b, requiredType));
 });

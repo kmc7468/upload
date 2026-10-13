@@ -1,7 +1,7 @@
 import SQLite3 from "better-sqlite3";
 import { Kysely, SqliteDialect } from "kysely";
 import { Migrator } from "kysely/migration";
-import path from "path";
+import path from "node:path";
 import { DATA_DIR } from "../loadenv";
 import logger from "../logger";
 import type Schema from "./schema";

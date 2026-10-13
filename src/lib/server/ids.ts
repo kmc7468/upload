@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import { existsSync } from "node:fs";
-import path from "node:path";
 import db from "./db/kysely";
-import { ID_CHARS, ID_LENGTH, UPLOAD_DIR } from "./loadenv";
+import { ID_CHARS, ID_LENGTH } from "./loadenv";
+import { storedPath } from "./storage";
 
 // Files and folders share public URLs. Reserve IDs through the entire write so
 // concurrent uploads cannot reuse an ID before its database record exists.
@@ -18,7 +18,7 @@ export async function reserveID() {
     reserved.add(id);
     try {
       if (
-        existsSync(path.join(UPLOAD_DIR, id)) ||
+        existsSync(storedPath(id)) ||
         (await db().selectFrom("file").select("id").where("id", "=", id).executeTakeFirst()) ||
         (await db().selectFrom("folder").select("id").where("id", "=", id).executeTakeFirst())
       ) {

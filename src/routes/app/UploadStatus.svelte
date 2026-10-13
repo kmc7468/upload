@@ -2,7 +2,7 @@
   import FolderNameEditor from "$lib/FolderNameEditor.svelte";
   import QRCode from "qrcode";
   import { goto } from "$app/navigation";
-  import { encodeStringInBase64 } from "$lib/cipher";
+  import { convertedPath, withPassphrase } from "$lib/urls";
   import { formatThroughput } from "$lib/utils";
 
   type Status =
@@ -30,23 +30,11 @@
 
   let realDownloadURL: string | undefined = $derived(
     isPassphraseIncluded && status?.status === "uploaded" && status.passphrase
-      ? `${status.downloadURL}#${encodeStringInBase64(status.passphrase)}`
+      ? withPassphrase(status.downloadURL, status.passphrase)
       : status?.status === "uploaded"
         ? status.downloadURL
         : undefined,
   );
-
-  const updateExtension = (downloadURL: string, newExtension: string) => {
-    const url = new URL(downloadURL);
-    const pathname = url.pathname;
-    const hasExtension = pathname.match(/\.[a-zA-Z0-9%_-]+$/);
-
-    if (!hasExtension) {
-      return downloadURL + newExtension;
-    } else {
-      return downloadURL.replace(/\.[a-zA-Z0-9%_-]+$/, newExtension);
-    }
-  };
 
   export const displayEncrypting = () => {
     status = {
@@ -138,14 +126,14 @@
           {#if status.isImage && !status.passphrase}
             <button
               type="button"
-              onclick={() => goto(`${updateExtension(realDownloadURL, ".jpg")}?jpg`)}
+              onclick={() => goto(convertedPath(realDownloadURL, "jpg"))}
               class="utility-button"
             >
               🖼️ Convert to JPEG
             </button>
             <button
               type="button"
-              onclick={() => goto(`${updateExtension(realDownloadURL, ".png")}?png`)}
+              onclick={() => goto(convertedPath(realDownloadURL, "png"))}
               class="utility-button"
             >
               🖼️ Convert to PNG

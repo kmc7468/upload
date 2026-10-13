@@ -1,13 +1,13 @@
 import { type Handle, type HandleServerError, type ServerInit } from "@sveltejs/kit";
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import schedule from "node-schedule";
 import { building } from "$app/environment";
 import * as constants from "$lib/constants";
 import { openDatabase, migrate as migrateDatabase } from "$lib/server/db/kysely";
-import { unlinkExpiredFiles, synchronizeWithDatabase } from "$lib/server/filesystem";
 import * as loadenv from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
+import { expireFolders, synchronizeWithDatabase } from "$lib/server/services/lifecycle";
 import { uploadResponse } from "$lib/server/upload";
 
 const mkdirIfNotExist = (dirPath: string) => {
@@ -45,7 +45,7 @@ export const init: ServerInit = async () => {
   openDatabase();
   await migrateDatabase();
   await synchronizeWithDatabase();
-  await unlinkExpiredFiles();
+  await expireFolders();
 
   // Clean up temporary archives left by versions that buffered downloads on disk.
   for (const entry of fs.readdirSync(loadenv.CACHE_DIR, { withFileTypes: true })) {
@@ -55,7 +55,7 @@ export const init: ServerInit = async () => {
   }
 
   // Cron Job 등록
-  schedule.scheduleJob("* * * * *", unlinkExpiredFiles);
+  schedule.scheduleJob("* * * * *", expireFolders);
 
   logger.info("Initialization completed!");
 };

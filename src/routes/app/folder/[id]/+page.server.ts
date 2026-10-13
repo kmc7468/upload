@@ -1,4 +1,4 @@
-import { folderInfo } from "$lib/server/folders";
+import { folderInfo } from "$lib/server/services/folders";
 import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ params }) => ({ folder: await folderInfo(params.id) });

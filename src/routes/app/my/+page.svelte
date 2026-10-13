@@ -10,6 +10,8 @@
     type UploadedFile,
   } from "$lib/storage";
 
+  import { filePagePath, fileSharePath, folderPagePath } from "$lib/urls";
+
   import "$lib/style.css";
 
   let uploadedFiles: UploadedFile[] = $state([]);
@@ -160,14 +162,8 @@
     uploadedFiles = uploadedFiles.filter((file) => !file.isExpired);
   };
 
-  const getDownloadUrl = (file: UploadedFile) => {
-    if (file.kind === "folder") return `/app/folder/${file.id}`;
-    if (file.isEncrypted) {
-      return `/app/file/${file.id}`;
-    } else {
-      return `/${file.id}/${encodeURIComponent(file.name)}`;
-    }
-  };
+  const getDownloadUrl = (file: UploadedFile) =>
+    file.kind === "folder" ? folderPagePath(file.id) : fileSharePath(file);
 
   const getFullDownloadUrl = (file: UploadedFile) => {
     const path = getDownloadUrl(file);
@@ -258,7 +254,8 @@
             class:clickable={!file.isExpired}
             onclick={() => {
               if (!file.isExpired) {
-                window.location.href = `/app/${file.kind === "folder" ? "folder" : "file"}/${file.id}`;
+                window.location.href =
+                  file.kind === "folder" ? folderPagePath(file.id) : filePagePath(file.id);
               }
             }}
           >

@@ -5,9 +5,20 @@
 
   import "$lib/style.css";
 
+  let { data } = $props();
+
   let isDisposable = $state(false);
   let isEnabledEncryption = $state(false);
   const isUploading = writable(false);
+
+  // "filename" is shown as a placeholder for the user's file.
+  const curlCommand = $derived.by(() => {
+    const origin = browser ? window.location.origin : "";
+    const options = `${isDisposable ? "d" : ""}${isEnabledEncryption ? "e" : ""}`;
+    return isEnabledEncryption
+      ? `openssl enc -e -aes-256-cbc -pbkdf2 < filename | curl -T - ${origin}/${options}/filename`
+      : `curl -T filename ${origin}/${options && `${options}/`}`;
+  });
 </script>
 
 <svelte:head>
@@ -32,28 +43,15 @@
           <div class="curl-inline">
             <span class="curl-label">You can also use command line:</span>
             <div class="curl-container">
-              {#if isEnabledEncryption}
-                <code class="curl-command-inline">
-                  openssl enc -e -aes-256-cbc -pbkdf2 &lt; <i>filename</i> | curl --upload-file - {#if isDisposable}{window
-                      .location.origin}/de/file{:else}{window.location.origin}/e/<i>filename</i
-                    >{/if}
-                </code>
-              {:else}
-                <code class="curl-command-inline">
-                  curl --upload-file <i>filename</i>
-                  {#if isDisposable}{window.location.origin}/d/<i>filename</i>{:else}{window
-                      .location.origin}{/if}
-                </code>
-              {/if}
+              <code class="curl-command-inline">
+                {#each curlCommand.split("filename") as part, index (index)}{#if index}<i
+                      >filename</i
+                    >{/if}{part}{/each}
+              </code>
               <button
                 type="button"
                 class="curl-copy-btn"
-                onclick={() => {
-                  const command = isEnabledEncryption
-                    ? `openssl enc -e -aes-256-cbc -pbkdf2 < filename | curl --upload-file - ${isDisposable ? window.location.origin + "/de/filename" : window.location.origin + "/e/filename"}`
-                    : `curl --upload-file filename ${isDisposable ? window.location.origin + "/d/filename" : window.location.origin}`;
-                  navigator.clipboard.writeText(command);
-                }}
+                onclick={() => navigator.clipboard.writeText(curlCommand)}
               >
                 📋
               </button>
@@ -101,8 +99,8 @@
           Storage Duration
         </h3>
         <p>
-          Files are automatically deleted after <strong>24 hours</strong>. They may be removed
-          earlier depending on server capacity.
+          Files are automatically deleted after <strong>{data.fileExpiry}</strong>. They may be
+          removed earlier depending on server capacity.
         </p>
       </div>
 
@@ -112,8 +110,8 @@
           Storage Capacity
         </h3>
         <p>
-          The server has <strong>16 GiB</strong> of available storage. During high traffic, uploads may
-          be temporarily unavailable.
+          The server has <strong>{data.storageCapacity}</strong> of available storage. During high traffic,
+          uploads may be temporarily unavailable.
         </p>
       </div>
 
@@ -217,55 +215,6 @@
     border-radius: 8px;
   }
 
-  .curl-label {
-    display: block;
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
-
-  .curl-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .curl-command-inline {
-    flex: 1;
-    display: block;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
-    font-size: 12px;
-    line-height: 1.4;
-    overflow-x: auto;
-    white-space: nowrap;
-    color: #374151;
-  }
-
-  .curl-copy-btn {
-    flex-shrink: 0;
-    padding: 8px 10px;
-    background: #667eea;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .curl-copy-btn:hover {
-    background: #5a67d8;
-    transform: translateY(-1px);
-  }
-
   .upload-form {
     display: flex;
     flex-direction: column;
@@ -349,10 +298,6 @@
     font-size: 13px;
   }
 
-  .info-section {
-    margin-top: 24px;
-  }
-
   .info-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -361,27 +306,6 @@
 
   .info-card {
     text-align: center;
-  }
-
-  .info-card h3 {
-    margin: 0 0 12px 0;
-    color: #333;
-    font-size: 18px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .info-icon {
-    font-size: 24px;
-  }
-
-  .info-card p {
-    margin: 0;
-    color: #666;
-    line-height: 1.6;
   }
 
   .warning-card {
@@ -398,10 +322,6 @@
   }
 
   @media (max-width: 768px) {
-    .main {
-      gap: 32px;
-    }
-
     .section-header {
       flex-direction: column;
       align-items: stretch;

@@ -6,12 +6,14 @@
   import { onMount, onDestroy } from "svelte";
   import FileSaver from "file-saver";
   import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
+  import { decryptOpenSSL } from "$lib/cipher";
   import {
-    decodeStringFromBase64,
-    encodeStringInBase64,
-    deriveBitsUsingPBKDF2,
-    decryptUsingAES256CBC,
-  } from "$lib/cipher";
+    downloadPath,
+    fileSharePath,
+    folderPagePath,
+    passphraseFromHash,
+    withPassphrase,
+  } from "$lib/urls";
   import { getUploadedFiles } from "$lib/storage";
   import { readStoredZip, createStoredZip } from "$lib/zip";
 
@@ -50,21 +52,21 @@
 
   const cannotCopy = $derived(!!data.folder?.isEncrypted && includePassphrase && !passphrase);
   const shareURL = (pathname: string) =>
-    `${origin}${pathname}${data.folder?.isEncrypted && includePassphrase && passphrase ? `#${encodeStringInBase64(passphrase)}` : ""}`;
+    data.folder?.isEncrypted && includePassphrase && passphrase
+      ? withPassphrase(`${origin}${pathname}`, passphrase)
+      : `${origin}${pathname}`;
 
   async function copyFolderLink() {
     if (cannotCopy) return;
     try {
-      await navigator.clipboard.writeText(shareURL(`/app/folder/${data.folder!.id}`));
+      await navigator.clipboard.writeText(shareURL(folderPagePath(data.folder!.id)));
       copyStatus = "";
     } catch {
       copyStatus = "Could not copy the link. Please try again.";
     }
   }
   const fileURL = (file: { id: string; name: string }) =>
-    data.folder?.isEncrypted
-      ? `/app/file/${file.id}`
-      : `/${file.id}/${encodeURIComponent(file.name)}`;
+    fileSharePath({ ...file, isEncrypted: !!data.folder?.isEncrypted });
 
   async function copyFileLink(file: { id: string; name: string }) {
     if (cannotCopy) return;
@@ -104,10 +106,8 @@
   });
 
   const archivePath = (format: "zip" | "tar") =>
-    `/${data.folder!.id}/${encodeURIComponent(archiveName(folderName, format))}`;
-  const curlCommand = $derived(
-    data.folder ? `curl -OJ ${origin}/${data.folder.id}` : "",
-  );
+    downloadPath(data.folder!.id, archiveName(folderName, format));
+  const curlCommand = $derived(data.folder ? `curl -OJ ${origin}/${data.folder.id}` : "");
   const url = (conversion = "", selection = false) => {
     const query = new SvelteURLSearchParams();
     if (conversion) query.set("conv", conversion);
@@ -121,7 +121,7 @@
     selected = data.folder.files.map((f) => f.id);
     try {
       passphrase = window.location.hash
-        ? decodeStringFromBase64(window.location.hash.slice(1))
+        ? passphraseFromHash(window.location.hash)
         : getUploadedFiles().find((f) => f.kind === "folder" && f.id === data.folder!.id)
             ?.passphrase || "";
     } catch {
@@ -137,7 +137,7 @@
     clearInterval(downloadTimer);
     downloadTimer = undefined;
     if (progressCookie && typeof document !== "undefined") {
-      document.cookie = `${progressCookie}=; Max-Age=0; Path=/app/folder/${data.folder!.id}; SameSite=Strict`;
+      document.cookie = `${progressCookie}=; Max-Age=0; Path=${folderPagePath(data.folder!.id)}; SameSite=Strict`;
     }
 
     progressCookie = "";
@@ -178,13 +178,6 @@
       finishConversionRequest(false);
   }
 
-  async function decryptContent(content: ArrayBuffer) {
-    if (content.byteLength < 32 || new TextDecoder().decode(content.slice(0, 8)) !== "Salted__")
-      throw new Error("Invalid encrypted file");
-    const key = await deriveBitsUsingPBKDF2(passphrase, new Uint8Array(content.slice(8, 16)), 384);
-    return decryptUsingAES256CBC(content.slice(16), key.slice(0, 32), key.slice(32, 48));
-  }
-
   async function downloadEncryptedFile(file: { id: string; name: string }) {
     if (busy || !passphrase || data.folder!.isDisposable) return;
     busy = true;
@@ -196,7 +189,7 @@
       if (!response.ok) throw new Error("Download failed");
       const encrypted = await response.arrayBuffer();
       status = `Decrypting ${file.name}...`;
-      const decrypted = await decryptContent(encrypted);
+      const decrypted = await decryptOpenSSL(encrypted, passphrase);
       FileSaver.saveAs(new Blob([decrypted]), file.name);
       statusTone = "success";
       status = "Succeeded in decrypting the file!";
@@ -226,7 +219,7 @@
       const files = readStoredZip(encryptedArchive);
       const decrypted = [];
       for (const file of files) {
-        const content = await decryptContent(file.content);
+        const content = await decryptOpenSSL(file.content, passphrase);
         decrypted.push({ name: file.name, content });
       }
 
@@ -502,50 +495,6 @@
     font-size: 36px;
   }
 
-  .error-card {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 32px;
-    background: rgba(254, 242, 242, 0.9);
-    border: 2px solid rgba(239, 68, 68, 0.2);
-    backdrop-filter: blur(10px);
-  }
-
-  .error-icon {
-    font-size: 48px;
-    flex-shrink: 0;
-    color: #dc2626;
-  }
-
-  .error-content h3 {
-    margin: 0 0 8px 0;
-    color: #991b1b;
-    font-size: 24px;
-    font-weight: 700;
-  }
-
-  .error-content p {
-    margin: 0;
-    color: #7c2d12;
-    font-size: 16px;
-    line-height: 1.5;
-    font-weight: 500;
-  }
-
-  .file-info-card {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 24px;
-  }
-
-  .file-icon {
-    font-size: 48px;
-    flex-shrink: 0;
-    opacity: 0.8;
-  }
-
   .file-details {
     flex: 1;
     min-width: 0;
@@ -639,39 +588,6 @@
     text-align: center;
   }
 
-  .download-section-card {
-    padding: 32px;
-  }
-
-  .download-header {
-    text-align: center;
-    margin-bottom: 24px;
-  }
-
-  .download-header h3 {
-    margin: 0 0 12px 0;
-    font-size: 24px;
-    font-weight: 600;
-    color: #333;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .download-description {
-    margin: 0;
-    color: #666;
-    font-size: 16px;
-    line-height: 1.5;
-  }
-
-  .download-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
   .download-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -693,10 +609,6 @@
     flex-shrink: 0;
     font-size: 16px;
     line-height: 1;
-  }
-
-  .download-icon {
-    font-size: 28px;
   }
 
   .keep-together {
@@ -726,29 +638,10 @@
     color: white;
   }
 
-  .direct-download-button {
-    background: #22c55e;
-    color: white;
-  }
-
   .copy-button:hover,
   .direct-download-button:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  }
-
-  .conversion-options {
-    padding: 20px;
-    background: rgba(102, 126, 234, 0.05);
-    border: 1px solid rgba(102, 126, 234, 0.15);
-    border-radius: 12px;
-  }
-
-  .conversion-options h4 {
-    margin: 0 0 12px 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
   }
 
   .conversion-options.unavailable {
@@ -760,12 +653,6 @@
     font-size: 14px;
     color: #666;
     line-height: 1.5;
-  }
-
-  .conversion-buttons {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
   }
 
   .conversion-button {
@@ -803,90 +690,12 @@
     border-radius: 8px;
   }
 
-  .curl-label {
-    display: block;
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
-
-  .curl-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .curl-command-inline {
-    flex: 1;
-    display: block;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
-    font-size: 12px;
-    line-height: 1.4;
-    overflow-x: auto;
-    white-space: nowrap;
-    color: #374151;
-  }
-
-  .curl-copy-btn {
-    flex-shrink: 0;
-    padding: 8px 10px;
-    background: #667eea;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .curl-copy-btn:hover {
-    background: #5a67d8;
-    transform: translateY(-1px);
-  }
-
-  .info-section {
-    margin-top: 24px;
-  }
-
   .info-card {
     text-align: center;
     padding: 24px;
   }
 
-  .info-card h3 {
-    margin: 0 0 12px 0;
-    color: #333;
-    font-size: 18px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .info-icon {
-    font-size: 24px;
-  }
-
-  .info-card p {
-    margin: 0;
-    color: #666;
-    line-height: 1.6;
-  }
-
   @media (max-width: 768px) {
-    .main {
-      gap: 32px;
-    }
-
     .section-header {
       margin-bottom: 0;
     }
@@ -899,22 +708,6 @@
 
     .file-details {
       width: 100%;
-    }
-
-    .file-info-card {
-      flex-direction: column;
-      text-align: center;
-      gap: 16px;
-    }
-
-    .download-section-card {
-      padding: 24px;
-    }
-
-    .download-header h3 {
-      font-size: 20px;
-      flex-direction: column;
-      gap: 4px;
     }
 
     .download-actions {
@@ -930,10 +723,6 @@
       display: none;
     }
 
-    .conversion-buttons {
-      flex-direction: column;
-    }
-
     .conversion-button {
       min-width: unset;
     }
@@ -942,12 +731,6 @@
   @media (max-width: 480px) {
     .section-title {
       font-size: 24px;
-    }
-
-    .error-card {
-      flex-direction: column;
-      text-align: center;
-      padding: 24px;
     }
 
     .download-button {

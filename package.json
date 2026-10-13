@@ -47,7 +47,7 @@
   },
   "type": "module",
   "engines": {
-    "node": ">=22",
+    "node": ">=22.2",
     "pnpm": "^12"
   }
 }
