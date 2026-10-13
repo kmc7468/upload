@@ -16,6 +16,7 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import CommandLine from "$lib/components/CommandLine.svelte";
   import CopyButton from "$lib/components/CopyButton.svelte";
+  import ShareMeta from "$lib/components/ShareMeta.svelte";
   import StatusMessage from "$lib/components/StatusMessage.svelte";
   import {
     downloadPath,
@@ -28,7 +29,7 @@
   import { getUploadedFiles } from "$lib/storage";
   import { clock } from "$lib/clock.svelte";
   import PasswordInput from "$lib/components/PasswordInput.svelte";
-  import { formatDateTime, formatExpiry, formatSize } from "$lib/utils";
+  import { formatDateTime, formatExpiry, formatSize, plural } from "$lib/utils";
   import { readStoredZip, createStoredZip } from "$lib/zip";
 
   let { data } = $props();
@@ -227,6 +228,14 @@
 </script>
 
 <svelte:head><title>{folderName} - Minchan's Upload</title></svelte:head>
+<ShareMeta
+  title={folderName}
+  description={[
+    plural(data.folder.files.length, "file"),
+    formatSize(data.folder.files.reduce((sum, file) => sum + file.size, 0)),
+    ...(data.folder.isEncrypted ? ["Encrypted"] : []),
+  ].join(" · ")}
+/>
 <iframe
   hidden
   title="Converted file download"

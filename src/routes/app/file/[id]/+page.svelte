@@ -16,6 +16,7 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import CommandLine from "$lib/components/CommandLine.svelte";
   import CopyButton from "$lib/components/CopyButton.svelte";
+  import ShareMeta from "$lib/components/ShareMeta.svelte";
   import StatusMessage from "$lib/components/StatusMessage.svelte";
   import { shellQuote } from "$lib/shell";
   import { getUploadedFiles } from "$lib/storage";
@@ -138,6 +139,13 @@
 <svelte:head>
   <title>{data.file.name} - Minchan's Upload</title>
 </svelte:head>
+<ShareMeta
+  title={data.file.name}
+  description={[
+    formatSize(data.file.size),
+    data.file.isEncrypted ? "Encrypted" : data.file.contentType,
+  ].join(" · ")}
+/>
 
 <div class="page">
   <PageHeader title="Download File" />
