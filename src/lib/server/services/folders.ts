@@ -149,11 +149,14 @@ export async function folderInfo(id: string) {
   };
 }
 
-// Returns the folder's name for its owner, or undefined for anyone else.
+// Returns the folder's name and expiry for its owner, or undefined for anyone else.
 export async function verifyFolder(id: string, token: string | null) {
   const folder = await findFolder(id);
   if (!folder?.ready || folder.managementToken !== token) return undefined;
-  return folder.name || defaultFolderName(await folderFiles(id));
+  return {
+    name: folder.name || defaultFolderName(await folderFiles(id)),
+    expireAt: folder.expireAt,
+  };
 }
 
 function safeName(name: string, used: Set<string>) {

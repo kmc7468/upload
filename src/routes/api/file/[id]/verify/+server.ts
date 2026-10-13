@@ -16,7 +16,6 @@ export const GET: RequestHandler = async ({ params, request }) => {
   }
 
   const file = await findFile(fileID);
-  return json({
-    exists: !!file && file.managementToken === managementToken,
-  });
+  const exists = !!file && file.managementToken === managementToken;
+  return json({ exists, expireAt: exists ? file.expireAt : undefined });
 };

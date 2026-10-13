@@ -1,12 +1,24 @@
 <script lang="ts">
   import "$lib/style.css";
   import { archiveName } from "$lib/archive-name";
-  import FolderNameEditor from "$lib/FolderNameEditor.svelte";
+  import FolderNameEditor from "$lib/components/FolderNameEditor.svelte";
   import { SvelteURLSearchParams } from "svelte/reactivity";
   import { onMount, onDestroy } from "svelte";
   import FileSaver from "file-saver";
   import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
+  import Download from "phosphor-svelte/lib/DownloadSimpleIcon";
+  import Folder from "phosphor-svelte/lib/FolderIcon";
+  import Image from "phosphor-svelte/lib/ImageIcon";
+  import LockOpen from "phosphor-svelte/lib/LockOpenIcon";
+  import ShieldCheck from "phosphor-svelte/lib/ShieldCheckIcon";
   import { decryptOpenSSL } from "$lib/cipher";
+  import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
+  import CommandLine from "$lib/components/CommandLine.svelte";
+  import CopyButton from "$lib/components/CopyButton.svelte";
+  import NotFound from "$lib/components/NotFound.svelte";
+  import StatusMessage from "$lib/components/StatusMessage.svelte";
   import {
     downloadPath,
     fileSharePath,
@@ -15,6 +27,9 @@
     withPassphrase,
   } from "$lib/urls";
   import { getUploadedFiles } from "$lib/storage";
+  import { clock } from "$lib/clock.svelte";
+  import PasswordInput from "$lib/components/PasswordInput.svelte";
+  import { formatDateTime, formatExpiry, formatSize } from "$lib/utils";
   import { readStoredZip, createStoredZip } from "$lib/zip";
 
   let { data } = $props();
@@ -46,7 +61,6 @@
   let busy = $state(false);
   let status = $state("");
   let statusTone = $state<"progress" | "success" | "error">("progress");
-  let copyStatus = $state("");
   let includePassphrase = $state(true);
   let activeFileID: string | null = $state(null);
 
@@ -56,27 +70,8 @@
       ? withPassphrase(`${origin}${pathname}`, passphrase)
       : `${origin}${pathname}`;
 
-  async function copyFolderLink() {
-    if (cannotCopy) return;
-    try {
-      await navigator.clipboard.writeText(shareURL(folderPagePath(data.folder!.id)));
-      copyStatus = "";
-    } catch {
-      copyStatus = "Could not copy the link. Please try again.";
-    }
-  }
   const fileURL = (file: { id: string; name: string }) =>
     fileSharePath({ ...file, isEncrypted: !!data.folder?.isEncrypted });
-
-  async function copyFileLink(file: { id: string; name: string }) {
-    if (cannotCopy) return;
-    try {
-      await navigator.clipboard.writeText(shareURL(fileURL(file)));
-      copyStatus = "";
-    } catch {
-      copyStatus = "Could not copy the link. Please try again.";
-    }
-  }
 
   let encryptedArchive: ArrayBuffer | undefined;
   let encryptedSelection = "";
@@ -192,7 +187,7 @@
       const decrypted = await decryptOpenSSL(encrypted, passphrase);
       FileSaver.saveAs(new Blob([decrypted]), file.name);
       statusTone = "success";
-      status = "Succeeded in decrypting the file!";
+      status = "The file has been decrypted.";
     } catch {
       statusTone = "error";
       status = "Could not download or decrypt the file. Check your passphrase and try again.";
@@ -228,7 +223,7 @@
         archiveName(folderName, "zip"),
       );
       statusTone = "success";
-      status = "Succeeded in decrypting the files!";
+      status = "The files have been decrypted.";
     } catch {
       statusTone = "error";
       status = "Could not download or decrypt the files. Check your passphrase and try again.";
@@ -246,500 +241,249 @@
   src={conversionURL}
   onload={checkDownloadFrame}
 ></iframe>
-<main class="main">
-  <section class="download-section">
-    <div class="section-header">
-      <h2 class="section-title"><span class="section-icon">📁</span> Download Folder</h2>
-    </div>
-    {#if !data.folder}
-      <div class="error-card rounded-box">
-        <div class="error-icon">❌</div>
-        <div class="error-content">
-          <h3>Folder Not Found</h3>
-          <p>This folder has expired or is no longer available.</p>
-        </div>
+<main class="page">
+  <PageHeader icon={Folder} title="Download Folder" />
+  {#if !data.folder}
+    <NotFound
+      title="Folder Not Found"
+      message="This folder has expired or is no longer available."
+    />
+  {:else}
+    <section class="card file-info-card">
+      <span class="file-icon"><Folder /></span>
+      <div class="file-details">
+        {#key data.folder.id}
+          <FolderNameEditor
+            variant="folder"
+            id={data.folder.id}
+            name={folderName}
+            fileCount={data.folder.files.length}
+            isEncrypted={data.folder.isEncrypted}
+            details={[
+              { text: formatSize(data.folder.files.reduce((sum, file) => sum + file.size, 0)) },
+              {
+                text: formatExpiry(data.folder.expireAt, clock.now),
+                title: formatDateTime(data.folder.expireAt),
+              },
+            ]}
+            {managementToken}
+            onsave={(name) => {
+              renamedFolder = { id: data.folder!.id, name };
+            }}
+          />
+        {/key}
       </div>
-    {:else}
-      <div class="file-info-card rounded-box">
-        <span class="file-icon">📁</span>
-        <div class="file-details">
-          {#key data.folder.id}
-            <FolderNameEditor
-              variant="folder"
-              id={data.folder.id}
-              name={folderName}
-              fileCount={data.folder.files.length}
-              isEncrypted={data.folder.isEncrypted}
-              {managementToken}
-              onsave={(name) => {
-                renamedFolder = { id: data.folder!.id, name };
-              }}
+    </section>
+    <Card
+      icon={Download}
+      title="Download Files"
+      description={data.folder.isDisposable
+        ? "Single Download: download all files together once. The entire folder will then be deleted."
+        : "Download all files, choose individual files, or select a group."}
+    >
+      <div class="download-form">
+        {#if data.folder.isEncrypted}
+          <div>
+            <label class="field-label" for="passphrase">Passphrase</label>
+            <PasswordInput
+              id="passphrase"
+              bind:value={passphrase}
+              disabled={busy}
+              placeholder="Enter the passphrase"
             />
-          {/key}
-        </div>
-      </div>
-      <div class="download-section-card rounded-box">
-        <div class="download-header">
-          <h3>
-            <span class="download-icon" aria-hidden="true">📥</span><span>Download Files</span>
-          </h3>
-          <p class="download-description">
-            {data.folder.isDisposable
-              ? "Single Download: download all files together once. The entire folder will then be deleted."
-              : "Download all files, choose individual files, or select a group."}
-          </p>
-        </div>
-        <div class="download-form">
-          {#if data.folder.isEncrypted}
-            <label class="passphrase-label"
-              ><span class="label-text">Encryption Passphrase</span><input
-                class="passphrase-input"
-                type="password"
-                bind:value={passphrase}
-                disabled={busy}
-                autocomplete="off"
-                placeholder="Enter the passphrase..."
-              /></label
-            >
-          {/if}
-          <div class="download-actions">
-            <button class="copy-button" disabled={cannotCopy} onclick={copyFolderLink}
-              ><span aria-hidden="true">📋</span><span>Copy Link</span></button
-            >
-            {#if data.folder.isEncrypted}<button
-                class="download-button"
-                disabled={busy || !passphrase}
-                onclick={() => downloadEncrypted()}
-                ><span class="button-icon" aria-hidden="true">🔓</span><span
-                  >Decrypt &amp; Download <span class="keep-together">All (ZIP)</span></span
-                ></button
-              >
-            {:else}<a
-                class="direct-download-button"
-                href={busy ? undefined : url()}
-                aria-disabled={busy}
-                onclick={(event) => {
-                  if (busy) event.preventDefault();
-                }}
-                download
-                ><span aria-hidden="true">📥</span><span
-                  >Download <span class="keep-together">All (ZIP)</span></span
-                ></a
-              >{/if}
           </div>
+        {/if}
+        <div class="download-actions">
+          <CopyButton
+            text={() => shareURL(folderPagePath(data.folder!.id))}
+            disabled={cannotCopy}
+          />
           {#if data.folder.isEncrypted}
-            <label class="share-option">
-              <input type="checkbox" bind:checked={includePassphrase} />
-              <span>Include passphrase in copied URLs</span>
+            <Button
+              variant="primary"
+              icon={LockOpen}
+              disabled={busy || !passphrase}
+              onclick={() => downloadEncrypted()}
+            >
+              <span>Decrypt &amp; Download <span class="keep-together">All (ZIP)</span></span>
+            </Button>
+          {:else}
+            <Button variant="primary" icon={Download} href={url()} disabled={busy} download>
+              <span>Download <span class="keep-together">All (ZIP)</span></span>
+            </Button>
+          {/if}
+        </div>
+        {#if data.folder.isEncrypted}
+          <label class="checkbox-label">
+            <input type="checkbox" bind:checked={includePassphrase} />
+            <span>Include passphrase in copied URLs</span>
+          </label>
+        {/if}
+        {#if status}
+          <StatusMessage tone={statusTone}>{status}</StatusMessage>
+        {/if}
+        <div class="file-list">
+          {#if !data.folder.isDisposable}
+            <label class="select-all">
+              <input
+                type="checkbox"
+                checked={selected.length === data.folder.files.length}
+                disabled={busy}
+                onchange={(event) =>
+                  (selected = event.currentTarget.checked
+                    ? data.folder!.files.map((f) => f.id)
+                    : [])}
+              />
+              Select All
             </label>
           {/if}
-          {#if status}<p class="status-indicator {statusTone}" role="status">
-              {status}
-            </p>{/if}
-          <div class="file-list">
-            {#if !data.folder.isDisposable}<label class="select-all"
-                ><input
-                  type="checkbox"
-                  checked={selected.length === data.folder.files.length}
-                  disabled={busy}
-                  onchange={(event) =>
-                    (selected = event.currentTarget.checked
-                      ? data.folder!.files.map((f) => f.id)
-                      : [])}
-                />Select all</label
-              >{/if}
-            {#each data.folder.files as file (file.id)}
-              <div class="file-row">
-                <label class="file-choice"
-                  >{#if !data.folder.isDisposable}<input
-                      type="checkbox"
-                      bind:group={selected}
-                      value={file.id}
-                      disabled={busy}
-                    />{/if}<span class="file-summary"
-                    ><span>{file.name}</span><span class="file-id">ID: {file.id}</span></span
-                  ></label
-                >
+          {#each data.folder.files as file (file.id)}
+            <div class="file-row" data-id={file.id}>
+              <label class="file-choice">
                 {#if !data.folder.isDisposable}
-                  <div class="file-actions">
-                    {#if data.folder.isEncrypted}
-                      <button
-                        class="individual-link"
-                        disabled={busy || !passphrase}
-                        onclick={() => downloadEncryptedFile(file)}
-                      >
-                        {activeFileID === file.id ? "Working..." : "Decrypt & Download"}
-                      </button>
-                    {:else}
-                      <a class="individual-link" href={fileURL(file)}>Download</a>
-                    {/if}
-                    <button
-                      class="file-copy-button"
-                      disabled={cannotCopy}
-                      onclick={() => copyFileLink(file)}
-                      aria-label={`Copy ${data.folder.isEncrypted ? "decryption" : "download"} link for ${file.name}`}
-                      title={data.folder.isEncrypted
-                        ? "Copy decryption page link"
-                        : "Copy download link"}>📋</button
-                    >
-                  </div>
+                  <input type="checkbox" bind:group={selected} value={file.id} disabled={busy} />
                 {/if}
-              </div>
-            {/each}
-          </div>
-          {#if copyStatus}<p class="copy-status" role="status">{copyStatus}</p>{/if}
-          {#if !data.folder.isDisposable}
-            {#if data.folder.isEncrypted}<button
-                class="download-button"
-                disabled={busy || !passphrase || !selected.length}
-                onclick={() => downloadEncrypted(true)}
-                ><span class="button-icon" aria-hidden="true">🔓</span><span
-                  >Decrypt &amp; Download <span class="keep-together"
-                    >Selected ({selected.length})</span
-                  ></span
-                ></button
-              >
-            {:else}<button
-                class="download-button"
-                disabled={busy || !selected.length}
-                onclick={() => window.location.assign(url("", true))}
-                ><span class="button-icon" aria-hidden="true">📥</span><span
-                  >Download <span class="keep-together">Selected ({selected.length})</span></span
-                ></button
-              >{/if}
-          {/if}
-          {#if showImageConversion}
-            <div class="conversion-options" class:unavailable={!!conversionReason}>
-              <h4>Image Conversion</h4>
-              <div class="conversion-buttons">
-                <button
-                  class="conversion-button"
-                  disabled={busy || !!conversionReason}
-                  onclick={() => downloadConverted("jpg")}
-                  ><span aria-hidden="true">🖼️</span><span
-                    >Convert {data.folder.isDisposable ? "All" : "Selected"} to
-                    <span class="keep-together">JPEG</span></span
-                  ></button
-                ><button
-                  class="conversion-button"
-                  disabled={busy || !!conversionReason}
-                  onclick={() => downloadConverted("png")}
-                  ><span aria-hidden="true">🖼️</span><span
-                    >Convert {data.folder.isDisposable ? "All" : "Selected"} to
-                    <span class="keep-together">PNG</span></span
-                  ></button
-                >
-              </div>
-              {#if conversionReason}<p class="conversion-reason" role="status">
-                  {conversionReason}
-                </p>{/if}
+                <span class="file-summary">
+                  <span>{file.name}</span>
+                  <span class="file-size">{formatSize(file.size)}</span>
+                </span>
+              </label>
+              {#if !data.folder.isDisposable}
+                <div class="file-actions">
+                  {#if data.folder.isEncrypted}
+                    <Button
+                      variant="subtle"
+                      size="sm"
+                      disabled={busy || !passphrase}
+                      onclick={() => downloadEncryptedFile(file)}
+                    >
+                      {activeFileID === file.id ? "Working..." : "Decrypt & Download"}
+                    </Button>
+                  {:else}
+                    <Button variant="subtle" size="sm" href={fileURL(file)}>Download</Button>
+                  {/if}
+                  <CopyButton
+                    text={() => shareURL(fileURL(file))}
+                    variant="subtle"
+                    size="sm"
+                    iconOnly
+                    disabled={cannotCopy}
+                    label={data.folder.isEncrypted
+                      ? "Copy Decryption Page Link"
+                      : "Copy Download Link"}
+                    title={data.folder.isEncrypted
+                      ? "Copy decryption page link"
+                      : "Copy download link"}
+                  />
+                </div>
+              {/if}
             </div>
-          {/if}
-          {#if !data.folder.isEncrypted}
-            <div class="curl-inline">
-              <span class="curl-label">Or use command line:</span>
-              <div class="curl-container">
-                <code class="curl-command-inline">{curlCommand}</code><button
-                  class="curl-copy-btn"
-                  aria-label="Copy curl command"
-                  onclick={() => navigator.clipboard.writeText(curlCommand)}>📋</button
-                >
-              </div>
-            </div>
-          {/if}
+          {/each}
         </div>
+        {#if !data.folder.isDisposable}
+          {#if data.folder.isEncrypted}
+            <Button
+              block
+              icon={LockOpen}
+              disabled={busy || !passphrase || !selected.length}
+              onclick={() => downloadEncrypted(true)}
+            >
+              <span>
+                Decrypt &amp; Download
+                <span class="keep-together">Selected ({selected.length})</span>
+              </span>
+            </Button>
+          {:else}
+            <Button
+              block
+              icon={Download}
+              disabled={busy || !selected.length}
+              onclick={() => window.location.assign(url("", true))}
+            >
+              <span>Download <span class="keep-together">Selected ({selected.length})</span></span>
+            </Button>
+          {/if}
+        {/if}
+        {#if showImageConversion}
+          <div class="conversion-options" class:unavailable={!!conversionReason}>
+            <h4>Image Conversion</h4>
+            <div class="conversion-buttons">
+              <Button
+                variant="subtle"
+                icon={Image}
+                disabled={busy || !!conversionReason}
+                onclick={() => downloadConverted("jpg")}
+              >
+                <span>
+                  Convert {data.folder.isDisposable ? "All" : "Selected"} to
+                  <span class="keep-together">JPEG</span>
+                </span>
+              </Button>
+              <Button
+                variant="subtle"
+                icon={Image}
+                disabled={busy || !!conversionReason}
+                onclick={() => downloadConverted("png")}
+              >
+                <span>
+                  Convert {data.folder.isDisposable ? "All" : "Selected"} to
+                  <span class="keep-together">PNG</span>
+                </span>
+              </Button>
+            </div>
+            {#if conversionReason}
+              <p class="conversion-reason">{conversionReason}</p>
+            {/if}
+          </div>
+        {/if}
+        {#if !data.folder.isEncrypted}
+          <CommandLine command={curlCommand} />
+        {/if}
       </div>
-    {/if}
-  </section>
-  {#if data.folder}<section class="info-section">
-      <div class="info-card rounded-box">
-        <h3><span class="info-icon">🔒</span>Privacy Policy</h3>
-        <p>
+    </Card>
+  {/if}
+  {#if data.folder}
+    <section class="info-section">
+      <Card icon={ShieldCheck} title="Privacy Policy">
+        <p class="info-text">
           When downloading files, we <strong>permanently</strong> store: folder ID, file IDs and your
           IP address.
         </p>
-      </div>
-    </section>{/if}
+      </Card>
+    </section>
+  {/if}
 </main>
 
 <style>
-  .main {
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-  }
-
-  .download-section {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .section-header {
-    text-align: center;
-    margin-bottom: 16px;
-  }
-
-  .section-title {
-    margin: 0;
-    font-size: 32px;
-    font-weight: 700;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-  }
-
-  .section-icon {
-    font-size: 36px;
-  }
-
   .file-details {
     flex: 1;
     min-width: 0;
-  }
-
-  .passphrase-label {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .label-text {
-    font-weight: 600;
-    color: #333;
-    font-size: 16px;
-  }
-
-  .passphrase-input {
-    width: 100%;
-    padding: 16px;
-    border: 2px solid rgba(102, 126, 234, 0.2);
-    border-radius: 12px;
-    font-size: 16px;
-    background: rgba(255, 255, 255, 0.9);
-    transition: all 0.3s ease;
-  }
-
-  .passphrase-input:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    outline: none;
-  }
-
-  .download-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-  }
-
-  .download-button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(102, 126, 234, 0.4);
-  }
-
-  .download-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .direct-download-button[aria-disabled="true"] {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .status-indicator.progress {
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    color: #3b82f6;
-  }
-
-  .status-indicator.success {
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.2);
-    color: #22c55e;
-  }
-
-  .status-indicator.error {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-  }
-
-  .status-indicator {
-    margin: 0;
-    overflow-wrap: anywhere;
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-weight: 500;
-    text-align: center;
-  }
-
-  .download-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-
-  .download-actions .download-button {
-    min-width: 0;
-    padding: 12px 20px;
-    font-size: 14px;
-    gap: 8px;
-  }
-
-  .download-actions .button-icon {
-    font-size: inherit;
-  }
-
-  .button-icon {
-    flex-shrink: 0;
-    font-size: 16px;
-    line-height: 1;
   }
 
   .keep-together {
     white-space: nowrap;
   }
 
-  .copy-button,
-  .direct-download-button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    border: none;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    flex: 1;
-    justify-content: center;
-    min-width: 140px;
-  }
-
-  .copy-button {
-    background: #667eea;
-    color: white;
-  }
-
-  .copy-button:hover,
-  .direct-download-button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  }
-
   .conversion-options.unavailable {
-    background: rgba(113, 128, 150, 0.06);
+    background: var(--color-surface-inset);
+    border-color: var(--color-border);
   }
 
   .conversion-reason {
     margin: 12px 0 0;
-    font-size: 14px;
-    color: #666;
+    font-size: var(--text-md);
+    color: var(--color-text-secondary);
     line-height: 1.5;
   }
 
-  .conversion-button {
-    box-shadow: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: rgba(102, 126, 234, 0.1);
-    color: #667eea;
-    text-decoration: none;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    flex: 1;
-    justify-content: center;
-    min-width: 120px;
+  .info-text {
+    margin: 0;
+    color: var(--color-text-secondary);
   }
 
-  .conversion-button:hover:not(:disabled) {
-    box-shadow: none;
-    background: #667eea;
-    color: white;
-    transform: translateY(-1px);
-  }
-
-  .curl-inline {
-    margin-top: 24px;
-    margin-bottom: 0;
-    padding: 12px;
-    background: rgba(102, 126, 234, 0.05);
-    border: 1px solid rgba(102, 126, 234, 0.15);
-    border-radius: 8px;
-  }
-
-  .info-card {
-    text-align: center;
-    padding: 24px;
-  }
-
-  @media (max-width: 768px) {
-    .section-header {
-      margin-bottom: 0;
-    }
-
-    .section-title {
-      font-size: 28px;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .file-details {
-      width: 100%;
-    }
-
-    .download-actions {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .copy-button,
-    .direct-download-button {
-      min-width: unset;
-    }
-
-    .curl-inline {
-      display: none;
-    }
-
-    .conversion-button {
-      min-width: unset;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .section-title {
-      font-size: 24px;
-    }
-
-    .download-button {
-      padding: 12px 16px;
-    }
-  }
   .file-list {
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     overflow: hidden;
   }
 
@@ -752,11 +496,11 @@
   }
 
   .file-row + .file-row {
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--color-border);
   }
 
   .select-all {
-    background: var(--primary-color-light);
+    background: var(--color-brand-subtle);
     font-weight: 600;
   }
 
@@ -770,13 +514,7 @@
   }
 
   .file-choice input {
-    flex-shrink: 0;
-    margin: 3px 0 0;
-  }
-
-  .select-all input {
-    flex-shrink: 0;
-    margin: 0;
+    margin-top: 3px;
   }
 
   .file-choice,
@@ -784,26 +522,18 @@
     cursor: pointer;
   }
 
-  .file-summary > span:first-child {
-    line-height: 1.5;
-  }
-
   .file-summary {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 2px;
     min-width: 0;
+    line-height: 1.5;
   }
 
-  .file-id {
-    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
-    font-size: 0.7rem;
-    color: #4a5568;
-    background: #f7fafc;
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
+  .file-size {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
   }
 
   .file-actions {
@@ -811,70 +541,12 @@
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
-    flex-wrap: wrap;
   }
 
-  .individual-link,
-  .file-copy-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 40px;
-    line-height: 20px;
-    text-decoration: none;
-    padding: 8px 12px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    border-radius: 8px;
-    background: rgba(102, 126, 234, 0.1);
-    color: var(--primary-color);
-    font-size: 14px;
-    font-weight: 500;
-    box-shadow: none;
-  }
-
-  .individual-link:hover,
-  .file-copy-button:hover {
-    background: rgba(102, 126, 234, 0.2);
-    transform: none;
-  }
-
-  .file-copy-button {
-    width: 40px;
-    padding: 8px;
-    flex-shrink: 0;
-  }
-
-  .share-option {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 16px;
-    background: rgba(59, 130, 246, 0.05);
-    border: 1px solid rgba(59, 130, 246, 0.1);
-    border-radius: 8px;
-    cursor: pointer;
-    color: #333;
-    font-size: 14px;
-  }
-
-  .share-option input {
-    margin: 0;
-    flex-shrink: 0;
-  }
-
-  .individual-link:disabled,
-  .file-copy-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-
-  .copy-status {
-    margin: 0;
-    color: #666;
-    font-size: 14px;
-    overflow-wrap: anywhere;
+  @media (max-width: 768px) {
+    .file-details {
+      width: 100%;
+    }
   }
 
   @media (max-width: 480px) {
@@ -888,27 +560,10 @@
 
     .file-actions {
       width: 100%;
-      justify-content: flex-end;
-      align-items: stretch;
-      flex-wrap: nowrap;
     }
 
-    .file-actions .individual-link {
+    .file-actions > :global(.button:first-child) {
       flex: 1;
-      min-width: 0;
-      text-align: center;
     }
-
-    .file-copy-button {
-      flex-shrink: 0;
-    }
-  }
-  .individual-link {
-    flex-shrink: 0;
-    font-size: 14px;
-  }
-
-  .download-button {
-    text-decoration: none;
   }
 </style>

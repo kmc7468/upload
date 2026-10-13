@@ -1,5 +1,5 @@
 <script lang="ts">
-  import FolderNameEditor from "$lib/FolderNameEditor.svelte";
+  import FolderNameEditor from "$lib/components/FolderNameEditor.svelte";
   import { onMount } from "svelte";
   import { browser } from "$app/environment";
   import {
@@ -10,6 +10,25 @@
     type UploadedFile,
   } from "$lib/storage";
 
+  import Download from "phosphor-svelte/lib/DownloadSimpleIcon";
+  import FileText from "phosphor-svelte/lib/FileTextIcon";
+  import Files from "phosphor-svelte/lib/FilesIcon";
+  import Folder from "phosphor-svelte/lib/FolderIcon";
+  import FolderOpen from "phosphor-svelte/lib/FolderOpenIcon";
+  import KeyRound from "phosphor-svelte/lib/KeyIcon";
+  import LoaderCircle from "phosphor-svelte/lib/CircleNotchIcon";
+  import Lock from "phosphor-svelte/lib/LockIcon";
+  import Trash from "phosphor-svelte/lib/TrashIcon";
+  import TriangleAlert from "phosphor-svelte/lib/WarningIcon";
+  import Upload from "phosphor-svelte/lib/UploadSimpleIcon";
+  import Button from "$lib/components/Button.svelte";
+  import CopyButton from "$lib/components/CopyButton.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
+  import StatusMessage from "$lib/components/StatusMessage.svelte";
+  import { confirmAction } from "$lib/confirm.svelte";
+  import { responseMessage } from "$lib/transfer";
+  import { clock } from "$lib/clock.svelte";
+  import { formatDateTime, formatExpiry, plural } from "$lib/utils";
   import { filePagePath, fileSharePath, folderPagePath } from "$lib/urls";
 
   import "$lib/style.css";
@@ -33,7 +52,7 @@
 
     for (let i = 0; i < storedFiles.length; i++) {
       const file = storedFiles[i];
-      const exists = await checkFileExists(file);
+      const result = await checkFile(file);
 
       // 진행 상황을 새 객체로 업데이트
       validationProgress = {
@@ -41,8 +60,17 @@
         total: storedFiles.length,
       };
 
+      // Without an answer from the server, the stored state is kept as it is.
+      if (!result) {
+        updatedFiles.push(file);
+        continue;
+      }
+      if (result.expireAt) {
+        expireAt[file.id] = result.expireAt;
+      }
+
       // 이전에 만료되지 않았던 파일이 지금 만료되었는지 확인
-      const isNowExpired = !exists;
+      const isNowExpired = !result.exists;
 
       // 만료된 파일의 경우 passphrase 즉시 삭제 (보안)
       const updatedFile = isNowExpired
@@ -69,54 +97,67 @@
     isInitializing = false;
   };
 
-  const deleteFile = async (file: UploadedFile) => {
-    if (file.isExpired) {
-      alert("Cannot delete expired files. Use the cleanup button to remove them from your list.");
-      return;
-    }
+  // The outcome of the last delete or cleanup, shown below the header.
+  let notice = $state<{ tone: "success" | "error"; message: string }>();
 
-    if (
-      !confirm(
-        `Are you sure you want to delete "${file.name}"${file.kind === "folder" ? " and all its files" : ""}?`,
-      )
-    ) {
-      return;
-    }
+  const deleteFile = async (file: UploadedFile) => {
+    if (file.isExpired) return;
+
+    const isFolder = file.kind === "folder";
+    const confirmed = await confirmAction({
+      title: isFolder ? "Delete Folder" : "Delete File",
+      message: `"${file.name}"${isFolder ? " and all its files" : ""} will be deleted for everyone with the link. This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
 
     try {
-      const response = await fetch(
-        `/api/${file.kind === "folder" ? "folder" : "file"}/${file.id}`,
-        {
-          method: "DELETE",
-          headers: {
-            "X-Management-Token": file.managementToken,
-          },
+      const response = await fetch(`/api/${isFolder ? "folder" : "file"}/${file.id}`, {
+        method: "DELETE",
+        headers: {
+          "X-Management-Token": file.managementToken,
         },
-      );
+      });
 
       if (response.ok) {
         removeUploadedFile(file.id);
         uploadedFiles = uploadedFiles.filter((f) => f.id !== file.id);
-        alert(
-          file.kind === "folder" ? "Folder deleted successfully." : "File deleted successfully.",
-        );
+        notice = { tone: "success", message: `"${file.name}" has been deleted.` };
       } else if (response.status === 404) {
         // 파일이 이미 삭제되었으면 만료 상태로 표시하고 passphrase 삭제 (보안)
         updateUploadedFile(file.id, { isExpired: true, passphrase: undefined });
         uploadedFiles = uploadedFiles.map((f) =>
           f.id === file.id ? { ...f, isExpired: true, passphrase: undefined } : f,
         );
-        alert("File not found. It has been marked as expired.");
+        notice = {
+          tone: "error",
+          message: `"${file.name}" no longer exists, so it has been marked as expired.`,
+        };
       } else {
-        alert("Failed to delete file.");
+        notice = {
+          tone: "error",
+          message:
+            (await responseMessage(response)) ??
+            `Could not delete "${file.name}". Please try again.`,
+        };
       }
-    } catch (error) {
-      alert("An error occurred while deleting the file.");
-      console.error(error);
+    } catch {
+      notice = {
+        tone: "error",
+        message: "Could not reach the server. Check your connection and try again.",
+      };
     }
   };
 
-  const checkFileExists = async (file: UploadedFile): Promise<boolean> => {
+  // Expiry times reported by the server, kept for this visit only.
+  let expireAt = $state<Record<string, number>>({});
+
+  // Returns undefined when the server could not answer, so a network error never marks a
+  // file as expired or discards its passphrase.
+  const checkFile = async (
+    file: UploadedFile,
+  ): Promise<{ exists: boolean; expireAt?: number } | undefined> => {
     try {
       // Management token을 사용한 정확한 파일 검증
       const response = await fetch(
@@ -129,37 +170,39 @@
         },
       );
 
-      if (response.ok) {
-        const result = await response.json();
-        if (file.kind === "folder" && result.exists && result.name) {
-          file.name = result.name;
-          updateUploadedFile(file.id, { name: result.name });
-        }
-        return result.exists;
+      if (response.status === 404) {
+        return { exists: false };
+      } else if (!response.ok) {
+        return undefined;
       }
-      return false;
+
+      const result = await response.json();
+      if (file.kind === "folder" && result.exists && result.name) {
+        file.name = result.name;
+        updateUploadedFile(file.id, { name: result.name });
+      }
+      return { exists: result.exists, expireAt: result.expireAt };
     } catch {
-      return false;
+      return undefined;
     }
   };
 
   const cleanupExpiredFiles = async () => {
-    const expiredFiles = uploadedFiles.filter((file) => file.isExpired);
+    const count = uploadedFiles.filter((file) => file.isExpired).length;
+    if (count === 0) return;
 
-    if (expiredFiles.length === 0) {
-      alert("No expired files to remove.");
-      return;
-    }
-
-    if (
-      !confirm(`This will remove ${expiredFiles.length} expired files from your list. Continue?`)
-    ) {
-      return;
-    }
+    const files = count === 1 ? "file" : "files";
+    const confirmed = await confirmAction({
+      title: "Remove Expired Files",
+      message: `Remove ${count} expired ${files} from this list? They are already gone from the server.`,
+      confirmLabel: "Remove",
+    });
+    if (!confirmed) return;
 
     // 만료되지 않은 파일만 유지
     removeExpiredFiles();
     uploadedFiles = uploadedFiles.filter((file) => !file.isExpired);
+    notice = { tone: "success", message: `Removed ${count} expired ${files} from the list.` };
   };
 
   const getDownloadUrl = (file: UploadedFile) =>
@@ -173,10 +216,7 @@
     return path;
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
-  };
+  const expiredCount = $derived(uploadedFiles.filter((file) => file.isExpired).length);
 
   // 활성 파일을 먼저 표시하도록 정렬
   const sortedFiles = $derived(
@@ -196,264 +236,193 @@
   <title>My Files - Minchan's Upload</title>
 </svelte:head>
 
-<main class="main">
-  <section class="upload-section">
-    <div class="section-header">
-      <h2 class="section-title">
-        <span class="section-icon">📁</span>
-        My Files
-      </h2>
-      <div class="header-actions">
-        <button
-          class="btn-secondary"
-          onclick={cleanupExpiredFiles}
-          disabled={isLoading || uploadedFiles.filter((f) => f.isExpired).length === 0}
-        >
-          {uploadedFiles.filter((f) => f.isExpired).length === 0
-            ? "🗑️ No expired files"
-            : `🗑️ Remove ${uploadedFiles.filter((f) => f.isExpired).length} expired files`}
-        </button>
-        <a href="/app" class="btn-primary">⬆️ Upload new file</a>
-      </div>
-    </div>
+<main class="page">
+  <PageHeader icon={Files} title="My Files">
+    {#snippet actions()}
+      <Button icon={Trash} onclick={cleanupExpiredFiles} disabled={isLoading || expiredCount === 0}>
+        {expiredCount === 0
+          ? "No Expired Files"
+          : `Remove ${expiredCount} Expired ${expiredCount === 1 ? "File" : "Files"}`}
+      </Button>
+      <Button variant="primary" href="/app" icon={Upload}>Upload Files</Button>
+    {/snippet}
+  </PageHeader>
 
-    {#if isInitializing}
-      <div class="loading-state">
-        <div class="loading-icon">⏳</div>
-        <h3>Checking files...</h3>
-        <p>Verifying your uploaded files are still available.</p>
-        {#if validationProgress.total > 0}
-          <div class="progress-container">
-            <div class="progress-bar">
-              <div
-                class="progress-fill"
-                style="width: {(validationProgress.current / validationProgress.total) * 100}%"
-              ></div>
-            </div>
-            <div class="progress-text">
-              {validationProgress.current} / {validationProgress.total} files checked
-            </div>
+  {#if notice}
+    <StatusMessage tone={notice.tone}>{notice.message}</StatusMessage>
+  {/if}
+
+  {#if isInitializing}
+    <section class="card state" role="status">
+      <div class="state-icon spinning"><LoaderCircle /></div>
+      <h3>Checking Files...</h3>
+      <p>Verifying your uploaded files are still available.</p>
+      {#if validationProgress.total > 0}
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              style="width: {(validationProgress.current / validationProgress.total) * 100}%"
+            ></div>
           </div>
-        {/if}
-      </div>
-    {:else if uploadedFiles.length === 0}
-      <div class="empty-state">
-        <div class="empty-icon">📂</div>
-        <h3>No files uploaded yet</h3>
-        <p>Files you upload will appear here for easy management.</p>
-        <a href="/app" class="btn-primary">Upload your first file</a>
-      </div>
-    {:else}
-      <div class="files-grid">
-        {#each sortedFiles as file (file.id)}
+          <div class="progress-text">
+            {validationProgress.current} / {validationProgress.total} files checked
+          </div>
+        </div>
+      {/if}
+    </section>
+  {:else if uploadedFiles.length === 0}
+    <section class="card state">
+      <div class="state-icon"><FolderOpen /></div>
+      <h3>No Files Uploaded Yet</h3>
+      <p>Files you upload will appear here for easy management.</p>
+      <Button variant="primary" href="/app" icon={Upload}>Upload Files</Button>
+    </section>
+  {:else}
+    <div class="files-grid">
+      {#each sortedFiles as file (file.id)}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="card file-card"
+          class:expired={file.isExpired}
+          class:clickable={!file.isExpired}
+          onclick={() => {
+            if (!file.isExpired) {
+              window.location.href =
+                file.kind === "folder" ? folderPagePath(file.id) : filePagePath(file.id);
+            }
+          }}
+        >
+          <div class="file-header">
+            <h3 class="file-name">
+              <span class="file-kind">
+                {#if file.kind === "folder"}<Folder />{:else}<FileText />{/if}
+              </span>
+              <span class="file-title" title={file.name}>{file.name}</span>
+            </h3>
+            <div class="meta-row">
+              <p class="meta-list">
+                {#if file.kind === "folder" && file.fileCount}
+                  <span>{plural(file.fileCount, "file")}</span>
+                {/if}
+                <span>Uploaded {formatDateTime(file.uploadedAt)}</span>
+                {#if !file.isExpired && expireAt[file.id]}
+                  <span title={formatDateTime(expireAt[file.id])}>
+                    {formatExpiry(expireAt[file.id], clock.now)}
+                  </span>
+                {/if}
+              </p>
+              {#if file.isEncrypted}
+                <span class="badge"><Lock />Encrypted</span>
+              {/if}
+              {#if file.isExpired}
+                <span class="badge danger"><TriangleAlert />Expired</span>
+              {/if}
+            </div>
+            {#if file.isExpired}
+              <div class="file-expired-notice">This file is no longer available for download.</div>
+            {/if}
+          </div>
+
+          <!-- The whole card opens the file, so its buttons keep their clicks. -->
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            class="file-card"
-            class:expired={file.isExpired}
-            class:clickable={!file.isExpired}
-            onclick={() => {
-              if (!file.isExpired) {
-                window.location.href =
-                  file.kind === "folder" ? folderPagePath(file.id) : filePagePath(file.id);
-              }
-            }}
-          >
-            <div class="file-header">
-              <div class="file-info">
-                <h3 class="file-name">
-                  {#if file.kind === "folder"}
-                    <span class="folder-title" title={file.name}>📁 {file.name}</span>
-                  {:else}
-                    {file.name}
-                  {/if}
-                  {#if file.isExpired}
-                    <span class="expired-badge">⚠️ Expired</span>
-                  {/if}
-                </h3>
-                <div class="file-meta">
-                  <span class="file-id">ID: {file.id}</span>
-                  {#if file.isEncrypted}
-                    <span class="file-encrypted">🔐 Encrypted</span>
-                  {/if}
-                </div>
-                <div class="file-date">
-                  Uploaded: {file.uploadedAt.toLocaleString()}
-                </div>
-                {#if file.isExpired}
-                  <div class="file-expired-notice">
-                    This file is no longer available for download.
-                  </div>
-                {/if}
-              </div>
-            </div>
-
-            <div class="file-actions">
-              {#if file.kind === "folder" && !file.isExpired}
-                <div class="folder-rename">
-                  <FolderNameEditor
-                    variant="my"
-                    id={file.id}
-                    name={file.name}
-                    managementToken={file.managementToken}
-                    onsave={(name) => {
-                      uploadedFiles = uploadedFiles.map((entry) =>
-                        entry.id === file.id ? { ...entry, name } : entry,
-                      );
-                    }}
-                  />
-                </div>
-              {/if}
-
-              <button
-                class="btn-secondary"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  copyToClipboard(getFullDownloadUrl(file));
-                }}
-                disabled={file.isExpired}
-              >
-                📋 Copy URL
-              </button>
-
-              {#if file.isExpired}
-                <button class="btn-primary" disabled onclick={(e) => e.stopPropagation()}>
-                  📥 Download
-                </button>
-              {:else}
-                <a
-                  href={getDownloadUrl(file)}
-                  class="btn-primary"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onclick={(e) => e.stopPropagation()}
-                >
-                  📥 Download
-                </a>
-              {/if}
-
-              {#if file.isEncrypted && file.passphrase}
-                <button
-                  class="btn-info"
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    copyToClipboard(file.passphrase!);
+          <div class="file-actions" onclick={(event) => event.stopPropagation()}>
+            {#if file.kind === "folder" && !file.isExpired}
+              <div class="folder-rename">
+                <FolderNameEditor
+                  variant="my"
+                  id={file.id}
+                  name={file.name}
+                  managementToken={file.managementToken}
+                  onsave={(name) => {
+                    uploadedFiles = uploadedFiles.map((entry) =>
+                      entry.id === file.id ? { ...entry, name } : entry,
+                    );
                   }}
-                  title="Copy passphrase"
-                  disabled={file.isExpired}
-                >
-                  🔑 Copy passphrase
-                </button>
-              {/if}
+                />
+              </div>
+            {/if}
 
-              <button
-                class="btn-danger"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  deleteFile(file);
-                }}
+            <CopyButton text={getFullDownloadUrl(file)} disabled={file.isExpired} />
+
+            <Button
+              variant="primary"
+              icon={Download}
+              href={getDownloadUrl(file)}
+              target="_blank"
+              rel="noopener noreferrer"
+              disabled={file.isExpired}
+            >
+              Download
+            </Button>
+
+            {#if file.isEncrypted && file.passphrase}
+              <CopyButton
+                text={file.passphrase}
+                label="Copy Passphrase"
+                icon={KeyRound}
                 disabled={file.isExpired}
-              >
-                🗑️ Delete
-              </button>
-            </div>
+              />
+            {/if}
+
+            <Button
+              variant="danger"
+              icon={Trash}
+              disabled={file.isExpired}
+              onclick={() => deleteFile(file)}
+            >
+              Delete
+            </Button>
           </div>
-        {/each}
-      </div>
-    {/if}
-  </section>
+        </div>
+      {/each}
+    </div>
+  {/if}
 </main>
 
 <style>
-  .main {
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-
-  .upload-section {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 2rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  }
-
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid rgba(102, 126, 234, 0.1);
-  }
-
-  .section-title {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 700;
-    color: #2d3748;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .section-icon {
-    font-size: 2rem;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 1rem;
-    align-items: stretch;
-  }
-
-  .empty-state {
+  .state {
     text-align: center;
     padding: 4rem 2rem;
-    color: #718096;
+    color: var(--color-text-secondary);
   }
 
-  .empty-icon {
-    font-size: 5rem;
+  .state-icon {
+    display: flex;
+    justify-content: center;
     margin-bottom: 1.5rem;
-    opacity: 0.6;
+    font-size: 64px;
+    color: var(--color-brand);
   }
 
-  .empty-state h3 {
+  .spinning :global(svg) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spinning :global(svg) {
+      animation: none;
+    }
+  }
+
+  .state h3 {
     margin: 0 0 1rem 0;
-    color: #2d3748;
-    font-size: 1.5rem;
+    color: var(--color-text);
+    font-size: var(--text-2xl);
     font-weight: 600;
   }
 
-  .empty-state p {
+  .state p {
     margin: 0 0 2rem 0;
-    font-size: 1.1rem;
-    line-height: 1.6;
-  }
-
-  .loading-state {
-    text-align: center;
-    padding: 4rem 2rem;
-    color: #718096;
-  }
-
-  .loading-icon {
-    font-size: 4rem;
-    margin-bottom: 1.5rem;
-    animation: pulse 2s infinite;
-  }
-
-  .loading-state h3 {
-    margin: 0 0 1rem 0;
-    color: #2d3748;
-    font-size: 1.5rem;
-    font-weight: 600;
-  }
-
-  .loading-state p {
-    margin: 0 0 1.5rem 0;
-    font-size: 1.1rem;
+    font-size: var(--text-lg);
     line-height: 1.6;
   }
 
@@ -465,48 +434,33 @@
   .progress-bar {
     width: 100%;
     height: 8px;
-    background: rgba(226, 232, 240, 0.8);
-    border-radius: 4px;
+    background: var(--color-brand-border);
+    border-radius: var(--radius-pill);
     overflow: hidden;
     margin-bottom: 0.5rem;
   }
 
   .progress-fill {
     height: 100%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 4px;
+    background: var(--gradient-brand);
+    border-radius: var(--radius-pill);
     transition: width 0.3s ease;
   }
 
   .progress-text {
-    font-size: 0.9rem;
-    color: #718096;
+    font-size: var(--text-md);
+    color: var(--color-text-secondary);
     font-weight: 500;
-  }
-
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
   }
 
   .files-grid {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 16px;
   }
 
   .file-card {
-    background: white;
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    border-radius: 12px;
-    padding: 1.5rem;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all var(--transition);
   }
 
   .file-card.clickable {
@@ -514,105 +468,64 @@
   }
 
   .file-card.clickable:hover {
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     transform: translateY(-2px);
-    border-color: #667eea;
+    border-color: var(--color-brand);
   }
 
+  /* The card stays opaque; only its content fades, so the background does not show through. */
   .file-card.expired {
-    background: #fafafa;
-    border-color: #f56565;
-    opacity: 0.7;
+    border-color: var(--color-danger-border);
     cursor: default;
   }
 
-  .file-card.expired:hover {
-    transform: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    border-color: #f56565;
+  .file-card.expired .file-header,
+  .file-card.expired .file-actions {
+    opacity: 0.6;
   }
 
   .file-header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 20px;
   }
 
   .file-name {
-    margin: 0 0 0.75rem 0;
-    font-size: 1.2rem;
+    margin: 0 0 6px 0;
+    font-size: var(--text-lg);
     font-weight: 600;
-    color: #2d3748;
-    word-break: break-word;
+    color: var(--color-text);
     line-height: 1.4;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
   }
 
-  .folder-title {
+  .file-kind {
+    display: flex;
+    color: var(--color-brand);
+  }
+
+  .file-title {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .expired-badge {
-    font-size: 0.8rem;
-    color: #f56565;
-    background: rgba(245, 101, 101, 0.1);
-    padding: 0.2rem 0.5rem;
-    border-radius: 6px;
-    border: 1px solid rgba(245, 101, 101, 0.2);
-    font-weight: 500;
-  }
-
-  .file-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .file-id {
-    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
-    font-size: 0.8rem;
-    color: #4a5568;
-    background: #f7fafc;
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-  }
-
-  .file-encrypted {
-    font-size: 0.8rem;
-    color: #667eea;
-    background: rgba(102, 126, 234, 0.1);
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    font-weight: 500;
-  }
-
-  .file-date {
-    font-size: 0.9rem;
-    color: #718096;
-    font-weight: 500;
-  }
-
   .file-expired-notice {
-    font-size: 0.85rem;
-    color: #f56565;
-    font-style: italic;
-    margin-top: 0.5rem;
-    padding: 0.5rem;
-    background: rgba(245, 101, 101, 0.05);
-    border-radius: 6px;
-    border: 1px solid rgba(245, 101, 101, 0.1);
+    margin-top: 12px;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-sm);
+    color: var(--color-danger);
+    background: var(--color-danger-subtle);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-danger-border);
   }
 
   .folder-rename {
     min-width: 0;
   }
+
   .folder-rename:has(:global(form)) {
     flex-basis: 100%;
   }
@@ -623,144 +536,21 @@
     gap: 0.75rem;
   }
 
-  .btn-primary,
-  .btn-secondary,
-  .btn-danger,
-  .btn-info {
-    padding: 0.75rem 1.25rem;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    min-height: 40px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    color: white;
-    text-decoration: none;
-  }
-
-  .btn-secondary {
-    background: white;
-    color: #4a5568;
-    border: 2px solid #e2e8f0;
-  }
-
-  .btn-secondary:hover {
-    background: #f7fafc;
-    border-color: #cbd5e0;
-    transform: translateY(-1px);
-    color: #4a5568;
-    text-decoration: none;
-  }
-
-  .btn-secondary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .btn-primary:disabled {
-    background: #cbd5e0 !important;
-    color: #a0aec0 !important;
-    cursor: not-allowed !important;
-    opacity: 1;
-  }
-
-  .btn-primary:disabled:hover {
-    transform: none !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-    cursor: not-allowed !important;
-  }
-
-  .btn-info:disabled,
-  .btn-danger:disabled {
-    background: #cbd5e0;
-    color: #a0aec0;
-    cursor: not-allowed;
-  }
-
-  .btn-info:disabled:hover,
-  .btn-danger:disabled:hover {
-    transform: none;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .btn-info {
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-    color: white;
-  }
-
-  .btn-info:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
-  }
-
-  .btn-danger {
-    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
-    color: white;
-  }
-
-  .btn-danger:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
-  }
-
   @media (max-width: 768px) {
-    .upload-section {
-      padding: 1.5rem;
+    /* Buttons share rows while they fit, as in the page header, keeping the list short. */
+    .file-actions > :global(.button) {
+      flex: 1 1 auto;
+      white-space: nowrap;
     }
 
-    .section-header {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 1rem;
-    }
-
-    .section-title {
-      align-self: center;
-      font-size: 1.75rem;
-    }
-
-    .header-actions {
-      justify-content: center;
-    }
-
-    .file-actions {
-      flex-direction: column;
-    }
-
-    .btn-primary,
-    .btn-secondary,
-    .btn-danger,
-    .btn-info {
-      width: 100%;
-      justify-content: center;
+    .folder-rename {
+      flex-basis: 100%;
     }
   }
 
   @media (max-width: 480px) {
-    .section-title {
-      font-size: 1.5rem;
-    }
-
     .file-card {
-      padding: 1rem;
+      padding: 16px;
     }
   }
 </style>

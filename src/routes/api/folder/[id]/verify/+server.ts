@@ -4,6 +4,6 @@ import { verifyFolder } from "$lib/server/services/folders";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ params, request }) => {
-  const name = await verifyFolder(params.id, managementTokenOf(request));
-  return json({ name, exists: name !== undefined });
+  const folder = await verifyFolder(params.id, managementTokenOf(request));
+  return json({ ...folder, exists: folder !== undefined });
 };

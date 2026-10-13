@@ -1,7 +1,15 @@
 <script lang="ts">
-  import FolderNameEditor from "$lib/FolderNameEditor.svelte";
+  import FolderNameEditor from "$lib/components/FolderNameEditor.svelte";
   import QRCode from "qrcode";
   import { goto } from "$app/navigation";
+  import CircleCheck from "phosphor-svelte/lib/CheckCircleIcon";
+  import CircleX from "phosphor-svelte/lib/XCircleIcon";
+  import Image from "phosphor-svelte/lib/ImageIcon";
+  import Lock from "phosphor-svelte/lib/LockIcon";
+  import QrCode from "phosphor-svelte/lib/QrCodeIcon";
+  import Upload from "phosphor-svelte/lib/UploadSimpleIcon";
+  import Button from "$lib/components/Button.svelte";
+  import CopyButton from "$lib/components/CopyButton.svelte";
   import { convertedPath, withPassphrase } from "$lib/urls";
   import { formatThroughput } from "$lib/utils";
 
@@ -23,6 +31,7 @@
       }
     | {
         status: "failed";
+        message: string;
       };
 
   let status: Status | undefined = $state();
@@ -62,9 +71,10 @@
       passphrase: newPassphrase,
     };
   };
-  export const displayFailure = () => {
+  export const displayFailure = (message = "Could not upload the file. Please try again.") => {
     status = {
       status: "failed",
+      message,
     };
   };
   export const reset = () => {
@@ -73,31 +83,38 @@
 </script>
 
 {#if status?.status === "encrypting"}
-  <div class="status-card encrypting">
-    <div class="status-icon">🔐</div>
+  <div class="status-card progress" role="status">
+    <span class="status-icon"><Lock /></span>
     <div class="status-content">
       <h4>Encrypting File</h4>
       <p>Securing your file with end-to-end encryption...</p>
     </div>
   </div>
 {:else if status?.status === "uploading"}
-  <div class="status-card uploading">
-    <div class="status-icon">⬆️</div>
+  <div class="status-card progress">
+    <span class="status-icon"><Upload /></span>
     <div class="status-content">
       <h4>Uploading File</h4>
       <div class="progress-info">
         <span class="progress-text">{status.percent}% • {status.throughput}</span>
-        <div class="progress-bar">
+        <div
+          class="progress-bar"
+          role="progressbar"
+          aria-label="Upload progress"
+          aria-valuenow={status.percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           <div class="progress-fill" style="width: {status.percent}%"></div>
         </div>
       </div>
     </div>
   </div>
 {:else if status?.status === "uploaded" && realDownloadURL}
-  <div class="status-card uploaded">
-    <div class="status-icon">✅</div>
+  <div class="status-card success" role="status">
+    <span class="status-icon"><CircleCheck /></span>
     <div class="status-content">
-      <h4>Upload Complete!</h4>
+      <h4>Upload Complete</h4>
 
       {#if status.folder}
         <FolderNameEditor
@@ -109,51 +126,43 @@
         />
       {/if}
       <div class="download-section">
-        <div class="download-label">Download URL</div>
+        <span class="field-label">Download URL</span>
         <a id="download" href={realDownloadURL} class="download-link">
           {decodeURI(realDownloadURL)}
         </a>
 
         <div class="download-actions">
-          <button
-            type="button"
-            onclick={() => navigator.clipboard.writeText(realDownloadURL)}
-            class="copy-button"
-          >
-            📋 Copy Link
-          </button>
+          <CopyButton text={realDownloadURL} variant="primary" />
 
           {#if status.isImage && !status.passphrase}
-            <button
-              type="button"
+            <Button
+              variant="subtle"
+              icon={Image}
               onclick={() => goto(convertedPath(realDownloadURL, "jpg"))}
-              class="utility-button"
             >
-              🖼️ Convert to JPEG
-            </button>
-            <button
-              type="button"
+              Convert to JPEG
+            </Button>
+            <Button
+              variant="subtle"
+              icon={Image}
               onclick={() => goto(convertedPath(realDownloadURL, "png"))}
-              class="utility-button"
             >
-              🖼️ Convert to PNG
-            </button>
+              Convert to PNG
+            </Button>
           {/if}
         </div>
       </div>
 
       {#if status.passphrase}
-        <div class="passphrase-option">
-          <label class="checkbox-label">
-            <input type="checkbox" bind:checked={isPassphraseIncluded} />
-            <span>Include passphrase in URL and QR code</span>
-          </label>
-        </div>
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={isPassphraseIncluded} />
+          <span>Include passphrase in URL and QR code</span>
+        </label>
       {/if}
 
       {#await QRCode.toDataURL(realDownloadURL, { margin: 2, width: 200 }) then qrcode}
         <details class="qr-section">
-          <summary>QR Code</summary>
+          <summary><QrCode weight="bold" />QR Code</summary>
           <div class="qr-container">
             <img src={qrcode} alt="QR code for download link" class="qr-image" />
             <p class="qr-description">Scan to download on mobile device</p>
@@ -163,11 +172,11 @@
     </div>
   </div>
 {:else if status?.status === "failed"}
-  <div class="status-card failed">
-    <div class="status-icon">❌</div>
+  <div class="status-card error" role="status">
+    <span class="status-icon"><CircleX /></span>
     <div class="status-content">
       <h4>Upload Failed</h4>
-      <p>An error occurred while uploading your file. Please try again.</p>
+      <p>{status.message}</p>
     </div>
   </div>
 {/if}
@@ -177,48 +186,39 @@
     display: flex;
     gap: 16px;
     padding: 24px;
-    border-radius: 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
     margin-top: 16px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all 0.3s ease;
     align-items: flex-start;
   }
 
-  .encrypting {
-    background: rgba(34, 197, 94, 0.1);
-    border-color: rgba(34, 197, 94, 0.3);
+  .progress {
+    background: var(--color-brand-faint);
+    border-color: var(--color-brand-border);
+    --status-color: var(--color-brand);
   }
 
-  .uploading {
-    background: rgba(59, 130, 246, 0.1);
-    border-color: rgba(59, 130, 246, 0.3);
+  .success {
+    background: var(--color-success-subtle);
+    border-color: var(--color-success-border);
+    --status-color: var(--color-success);
   }
 
-  .uploaded {
-    background: rgba(34, 197, 94, 0.1);
-    border-color: rgba(34, 197, 94, 0.3);
-  }
-
-  .failed {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
+  .error {
+    background: var(--color-danger-subtle);
+    border-color: var(--color-danger-border);
+    --status-color: var(--color-danger);
   }
 
   .status-icon {
-    font-size: 32px;
-    flex-shrink: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--status-color);
   }
 
   .status-content {
-    --editor-label-size: 14px;
     min-width: 0;
     flex: 1;
     display: flex;
@@ -228,14 +228,15 @@
 
   .status-content h4 {
     margin: 0;
-    font-size: 18px;
+    font-size: var(--text-lg);
     font-weight: 600;
-    color: #333;
+    line-height: 32px;
+    color: var(--color-text);
   }
 
   .status-content p {
     margin: 0;
-    color: #666;
+    color: var(--color-text-secondary);
     line-height: 1.5;
   }
 
@@ -246,131 +247,65 @@
   }
 
   .progress-text {
-    font-size: 14px;
+    font-size: var(--text-md);
     font-weight: 600;
-    color: #3b82f6;
+    color: var(--color-brand-strong);
   }
 
   .progress-bar {
     width: 100%;
     height: 8px;
-    background: rgba(59, 130, 246, 0.2);
-    border-radius: 4px;
+    background: var(--color-brand-border);
+    border-radius: var(--radius-pill);
     overflow: hidden;
   }
 
   .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
-    border-radius: 4px;
+    background: var(--gradient-brand);
+    border-radius: var(--radius-pill);
     transition: width 0.3s ease;
   }
 
   .download-section {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-  }
-
-  .download-label {
-    font-weight: 600;
-    color: #333;
-    font-size: var(--editor-label-size);
   }
 
   .download-link {
-    word-break: break-all;
-    color: #667eea;
-    text-decoration: none;
-    font-weight: 500;
-    padding: 12px 16px;
-    background: rgba(102, 126, 234, 0.1);
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    border-radius: 8px;
-    transition: all 0.3s ease;
-  }
-
-  .download-link:hover {
-    background: rgba(102, 126, 234, 0.2);
-    text-decoration: underline;
+    margin-bottom: 12px;
   }
 
   .download-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-  }
-
-  .copy-button {
-    padding: 8px 16px;
-    font-size: 14px;
-    background: #667eea;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-  }
-
-  .copy-button:hover {
-    background: #5a67d8;
-    transform: translateY(-1px);
-  }
-
-  .passphrase-option {
-    padding: 16px;
-    background: rgba(59, 130, 246, 0.05);
-    border: 1px solid rgba(59, 130, 246, 0.1);
-    border-radius: 8px;
-  }
-
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    color: #333;
-  }
-
-  .checkbox-label input[type="checkbox"] {
-    margin: 0;
   }
 
   .qr-section {
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    border-radius: 8px;
-    background: rgba(102, 126, 234, 0.05);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-solid);
   }
 
   .qr-section summary {
-    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
     cursor: pointer;
     font-weight: 600;
-    color: #333;
-    border-radius: 8px;
-    transition: background-color 0.3s ease;
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    transition: background-color var(--transition);
   }
 
   .qr-section summary:hover {
-    background: rgba(102, 126, 234, 0.1);
+    background: var(--color-brand-faint);
   }
 
-  .utility-button {
-    padding: 8px 16px;
-    font-size: 14px;
-    background: #667eea;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-  }
-
-  .utility-button:hover {
-    background: #5a67d8;
-    transform: translateY(-1px);
+  .qr-section summary :global(svg) {
+    color: var(--color-brand);
   }
 
   .qr-container {
@@ -383,107 +318,43 @@
   }
 
   .qr-image {
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
   }
 
   .qr-description {
     margin: 0;
-    font-size: 13px;
-    color: #666;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
   }
 
   @media (max-width: 768px) {
     .status-card {
       padding: 16px;
       gap: 12px;
-      flex-direction: column;
     }
 
     .status-icon {
-      font-size: 24px;
-      width: 40px;
-      height: 40px;
-      align-self: flex-start;
+      font-size: var(--text-2xl);
     }
 
     .status-content h4 {
-      font-size: 16px;
-    }
-
-    .download-section {
-      gap: 8px;
-    }
-
-    .status-content {
-      --editor-label-size: 13px;
-      --upload-control-font: 13px;
-      --upload-control-height: 37px;
-    }
-
-    .download-label {
-      text-align: left;
+      font-size: var(--text-base);
+      line-height: 28px;
     }
 
     .download-link {
-      font-size: 12px;
+      font-size: var(--text-xs);
       padding: 8px 12px;
-      text-align: left;
       line-height: 1.4;
     }
 
     .download-actions {
       flex-direction: column;
-      gap: 6px;
-    }
-
-    .copy-button,
-    .utility-button {
-      font-size: 13px;
-      padding: 8px 12px;
-    }
-
-    .qr-container {
-      padding: 12px;
-      text-align: center;
-    }
-
-    .qr-image {
-      align-self: center;
-    }
-
-    .qr-description {
-      text-align: center;
-      font-size: 12px;
     }
   }
 
   @media (max-width: 480px) {
-    .status-card {
-      padding: 12px;
-      gap: 8px;
-    }
-
-    .status-icon {
-      font-size: 20px;
-      width: 32px;
-      height: 32px;
-    }
-
-    .status-content {
-      width: 100%;
-    }
-
-    .qr-section summary {
-      padding: 8px 12px;
-      font-size: 14px;
-    }
-
-    .qr-container {
-      padding: 8px;
-      align-items: center;
-    }
-
     .qr-image {
       width: 150px;
       height: 150px;

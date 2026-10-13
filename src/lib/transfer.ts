@@ -42,3 +42,26 @@ export const transfer = (method: string, url: string, options: TransferOptions =
     xhr.addEventListener("abort", () => reject(new Error("The request was cancelled.")));
     xhr.send(options.body ?? null);
   });
+
+// API routes answer with JSON and the curl routes with plain text. Bare status codes
+// such as "Error: 404" carry no explanation, so callers fall back to their own text.
+const messageFrom = (contentType: string | null, body: string) => {
+  if (contentType?.includes("application/json")) {
+    try {
+      const { message } = JSON.parse(body);
+      return typeof message === "string" && !/^Error: \d+$/.test(message) ? message : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return contentType?.startsWith("text/plain") ? body.trim() || undefined : undefined;
+};
+
+export const responseMessage = async (response: Response) =>
+  messageFrom(response.headers.get("Content-Type"), await response.text().catch(() => ""));
+
+export const requestMessage = (xhr: XMLHttpRequest) =>
+  messageFrom(
+    xhr.getResponseHeader("Content-Type"),
+    typeof xhr.response === "string" ? xhr.response : "",
+  );

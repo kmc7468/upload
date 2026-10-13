@@ -1,61 +1,73 @@
 <script lang="ts">
+  import CloudUpload from "phosphor-svelte/lib/CloudArrowUpIcon";
+  import Mail from "phosphor-svelte/lib/EnvelopeSimpleIcon";
+  import GithubLogo from "phosphor-svelte/lib/GithubLogoIcon";
+  import IconContext from "phosphor-svelte/lib/IconContext";
+  import Terminal from "phosphor-svelte/lib/TerminalWindowIcon";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+
   let { children } = $props();
 </script>
 
-<div>
-  <header class="header">
-    <div class="header-content">
-      <a href="/app" class="title-link">
-        <h1 class="title">
-          <span class="title-icon">📤</span>
-          Minchan's Upload
-        </h1>
-      </a>
-      <nav class="header-nav">
-        <a
-          href="https://github.com/kmc7468/upload"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="nav-button github-button"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
-            />
-          </svg>
-          <span>GitHub</span>
+<!-- Icons decorate text unless a control asks for the outlined weight. -->
+<IconContext values={{ weight: "fill", class: "icon", "aria-hidden": "true" }}>
+  <div class="app">
+    <header class="header">
+      <div class="header-content">
+        <a href="/app" class="title-link">
+          <h1 class="title">
+            <span class="title-icon"><CloudUpload /></span>
+            Minchan's Upload
+          </h1>
         </a>
-        <a href="mailto:me@minchan.me" class="nav-button email-button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
-            />
-          </svg>
-          <span>Contact</span>
-        </a>
-      </nav>
-    </div>
-  </header>
-  <main class="main-content">
-    {@render children?.()}
-  </main>
-  <footer class="footer">
-    <div class="footer-content">
-      <div class="footer-info">
-        <p class="copyright">© 2024-2026. Minchan Kim all rights reserved.</p>
+        <nav class="header-nav">
+          <a
+            href="https://github.com/kmc7468/upload"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="nav-button github-button"
+          >
+            <GithubLogo weight="bold" />
+            <span>GitHub</span>
+          </a>
+          <a href="mailto:me@minchan.me" class="nav-button email-button">
+            <Mail weight="bold" />
+            <span>Contact</span>
+          </a>
+        </nav>
       </div>
-      <div class="footer-actions">
-        <a href="/install.sh" class="install-button" target="_blank" rel="noopener noreferrer">
-          Linux CLI Tool
-        </a>
+    </header>
+    <main class="main-content">
+      {@render children?.()}
+    </main>
+    <footer class="footer">
+      <div class="footer-content">
+        <div class="footer-info">
+          <p class="copyright">© 2024-2026 Minchan Kim. All rights reserved.</p>
+        </div>
+        <div class="footer-actions">
+          <a href="/install.sh" class="install-button" target="_blank" rel="noopener noreferrer">
+            <Terminal weight="bold" />
+            Linux CLI Tool
+          </a>
+        </div>
       </div>
-    </div>
-  </footer>
-</div>
+    </footer>
+  </div>
+
+  <ConfirmDialog />
+</IconContext>
 
 <style>
+  /* The main content grows so the footer stays at the bottom of short pages. */
+  .app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
   .header {
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--color-surface);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -76,22 +88,24 @@
 
   .title {
     margin: 0;
-    font-size: 24px;
+    font-size: var(--text-2xl);
     font-weight: 700;
-    color: #333;
+    color: var(--color-text);
     display: flex;
     align-items: center;
     gap: 12px;
   }
 
   .title-icon {
+    display: flex;
     font-size: 28px;
+    color: var(--color-brand);
   }
 
   .title-link {
     text-decoration: none;
     color: inherit;
-    transition: all 0.3s ease;
+    transition: all var(--transition);
   }
 
   .title-link:hover {
@@ -100,7 +114,7 @@
   }
 
   .title-link:hover .title {
-    color: #667eea;
+    color: var(--color-brand);
   }
 
   .header-nav {
@@ -113,21 +127,27 @@
     align-items: center;
     gap: 8px;
     padding: 10px 16px;
-    border-radius: 12px;
-    background: rgba(102, 126, 234, 0.1);
-    color: #667eea;
+    border-radius: var(--radius-md);
+    background: var(--color-brand-subtle);
+    color: var(--color-brand);
     text-decoration: none;
     font-weight: 600;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(102, 126, 234, 0.2);
+    font-size: var(--text-md);
+    transition: all var(--transition);
+    border: 1px solid var(--color-brand-border);
+  }
+
+  .nav-button :global(svg) {
+    width: 18px;
+    height: 18px;
   }
 
   .nav-button:hover {
-    background: #667eea;
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+    background: var(--color-brand);
+    color: var(--color-text-inverse);
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-brand);
   }
 
   .main-content {
@@ -164,7 +184,7 @@
   .copyright {
     margin: 0;
     color: rgba(255, 255, 255, 0.7);
-    font-size: 14px;
+    font-size: var(--text-md);
     font-weight: 500;
   }
 
@@ -181,11 +201,11 @@
     background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     text-decoration: none;
-    font-size: 14px;
+    font-size: var(--text-md);
     font-weight: 500;
-    transition: all 0.3s ease;
+    transition: all var(--transition);
     backdrop-filter: blur(10px);
   }
 
@@ -193,7 +213,7 @@
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.3);
     transform: translateY(-1px);
-    color: white;
+    color: var(--color-text-inverse);
     text-decoration: none;
   }
 
@@ -204,7 +224,7 @@
     }
 
     .title {
-      font-size: 20px;
+      font-size: var(--text-xl);
     }
 
     .title-link:hover {
@@ -217,7 +237,7 @@
 
     .nav-button {
       padding: 8px;
-      font-size: 13px;
+      font-size: var(--text-sm);
     }
 
     .nav-button span {
@@ -253,7 +273,7 @@
     }
 
     .title {
-      font-size: 18px;
+      font-size: var(--text-lg);
     }
 
     .title-icon {

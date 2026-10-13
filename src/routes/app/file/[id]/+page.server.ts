@@ -1,5 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 import { findFile } from "$lib/server/db/file";
+import { storedSize } from "$lib/server/storage";
 import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -13,6 +14,8 @@ export const load: PageServerLoad = async ({ params }) => {
         folderId: file.expectedCount > 1 ? file.folderId : null,
         name: file.name,
         contentType: file.contentType,
+        size: await storedSize(file.id),
+        expireAt: file.expireAt,
         isEncrypted: !!file.isEncrypted,
       },
     };
