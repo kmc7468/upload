@@ -1,4 +1,6 @@
 <script lang="ts">
+  // Global styles come first, so each component's own styles build on them.
+  import "$lib/style.css";
   import CloudUpload from "phosphor-svelte/lib/CloudArrowUpIcon";
   import Mail from "phosphor-svelte/lib/EnvelopeSimpleIcon";
   import GithubLogo from "phosphor-svelte/lib/GithubLogoIcon";

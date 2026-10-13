@@ -1,7 +1,6 @@
 <script lang="ts">
   import FolderNameEditor from "$lib/components/FolderNameEditor.svelte";
   import QRCode from "qrcode";
-  import { goto } from "$app/navigation";
   import CaretDown from "phosphor-svelte/lib/CaretDownIcon";
   import CircleCheck from "phosphor-svelte/lib/CheckCircleIcon";
   import CircleX from "phosphor-svelte/lib/XCircleIcon";
@@ -136,18 +135,10 @@
           <CopyButton text={realDownloadURL} variant="primary" />
 
           {#if status.isImage && !status.passphrase}
-            <Button
-              variant="secondary"
-              icon={Image}
-              onclick={() => goto(convertedPath(realDownloadURL, "jpg"))}
-            >
+            <Button variant="secondary" icon={Image} href={convertedPath(realDownloadURL, "jpg")}>
               Convert to JPEG
             </Button>
-            <Button
-              variant="secondary"
-              icon={Image}
-              onclick={() => goto(convertedPath(realDownloadURL, "png"))}
-            >
+            <Button variant="secondary" icon={Image} href={convertedPath(realDownloadURL, "png")}>
               Convert to PNG
             </Button>
           {/if}

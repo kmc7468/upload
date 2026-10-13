@@ -1,7 +1,7 @@
 <script lang="ts">
   import FileSaver from "file-saver";
   import { onMount, tick } from "svelte";
-  import { browser } from "$app/environment";
+  import { page } from "$app/state";
   import Download from "phosphor-svelte/lib/DownloadSimpleIcon";
   import FileText from "phosphor-svelte/lib/FileTextIcon";
   import Folder from "phosphor-svelte/lib/FolderIcon";
@@ -16,7 +16,6 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import CommandLine from "$lib/components/CommandLine.svelte";
   import CopyButton from "$lib/components/CopyButton.svelte";
-  import NotFound from "$lib/components/NotFound.svelte";
   import StatusMessage from "$lib/components/StatusMessage.svelte";
   import { shellQuote } from "$lib/shell";
   import { getUploadedFiles } from "$lib/storage";
@@ -26,13 +25,12 @@
   import { clock } from "$lib/clock.svelte";
   import PasswordInput from "$lib/components/PasswordInput.svelte";
 
-  import "$lib/style.css";
-
   let { data } = $props();
 
-  const isImage = $derived(data.file?.contentType.startsWith("image/") ?? false);
+  const isImage = $derived(data.file.contentType.startsWith("image/"));
 
-  let downloadURL = $state("");
+  // Built from the server's address, so the link is in the page from the first paint.
+  const downloadURL = $derived(`${page.url.origin}${downloadPath(data.file.id, data.file.name)}`);
   let status = $state<{ tone: "progress" | "success" | "error"; message: string }>();
   let passphrase = $state("");
 
@@ -106,14 +104,10 @@
       }
     }
 
-    FileSaver.saveAs(file, data.file!.name);
+    FileSaver.saveAs(file, data.file.name);
   };
 
   onMount(async () => {
-    if (!data.file) return;
-
-    downloadURL = `${window.location.origin}${downloadPath(data.file.id, data.file.name)}`;
-
     if (!data.file.isEncrypted) return;
 
     const fromURL = !!window.location.hash;
@@ -123,9 +117,9 @@
         : getUploadedFiles().find(
             (stored) =>
               !stored.isExpired &&
-              (data.file!.folderId
-                ? stored.kind === "folder" && stored.id === data.file!.folderId
-                : stored.kind !== "folder" && stored.id === data.file!.id),
+              (data.file.folderId
+                ? stored.kind === "folder" && stored.id === data.file.folderId
+                : stored.kind !== "folder" && stored.id === data.file.id),
           )?.passphrase || "";
     } catch {
       // Invalid URL fragments or unavailable storage still allow manual entry.
@@ -142,132 +136,118 @@
 </script>
 
 <svelte:head>
-  <title
-    >{data.file === null
-      ? "File not found - Minchan's Upload"
-      : `${data.file.name} - Minchan's Upload`}</title
-  >
+  <title>{data.file.name} - Minchan's Upload</title>
 </svelte:head>
 
-<main class="page">
+<div class="page">
   <PageHeader title="Download File" />
 
-  {#if data.file === null}
-    <NotFound title="File Not Found" message="The requested file does not exist or has expired." />
-  {:else}
-    <section class="card file-info-card">
-      <span class="tile lg"
-        >{#if isImage}<Image />{:else}<FileText />{/if}</span
-      >
-      <div class="file-details">
-        <h3 class="file-name">{data.file.name}</h3>
-        <div class="meta-row">
-          <p class="meta-list">
-            <span>{formatSize(data.file.size)}</span>
-            {#if !data.file.isEncrypted}<span>{data.file.contentType}</span>{/if}
-            <span title={formatDateTime(data.file.expireAt)}>
-              {formatExpiry(data.file.expireAt, clock.now)}
-            </span>
-          </p>
-          {#if data.file.isEncrypted}
-            <span class="badge"><Lock />Encrypted</span>
-          {/if}
-        </div>
-      </div>
-      {#if data.file.folderId}
-        <Button href={folderPagePath(data.file.folderId)} icon={Folder}>Open Folder</Button>
-      {/if}
-    </section>
-
-    {#if data.file.isEncrypted}
-      <Card
-        icon={LockOpen}
-        title="Decrypt File"
-        description="This file is encrypted. Enter the passphrase to download and decrypt it."
-      >
-        <div class="download-form">
-          <div>
-            <label class="field-label" for="passphrase">Passphrase</label>
-            <PasswordInput
-              id="passphrase"
-              disabled={isDownloading || !!file}
-              bind:value={passphrase}
-              placeholder="Enter the passphrase"
-              onkeydown={async (event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  await downloadAndDecryptFile();
-                }
-              }}
-            />
-          </div>
-
-          {#if passphrase !== ""}
-            <Button
-              variant="primary"
-              block
-              icon={stage.icon}
-              disabled={isDownloading}
-              onclick={downloadAndDecryptFile}
-            >
-              {stage.label}
-            </Button>
-
-            {#if status}
-              <StatusMessage tone={status.tone}>{status.message}</StatusMessage>
-            {/if}
-          {/if}
-        </div>
-      </Card>
-
-      {#if browser}
-        <CommandLine
-          command={`curl -s ${shellQuote(`${window.location.origin}/${data.file.id}`)} | openssl enc -d -aes-256-cbc -pbkdf2 > ${shellQuote(data.file.name)}`}
-        />
-      {/if}
-    {:else if downloadURL !== ""}
-      <Card
-        icon={Download}
-        title="Download Options"
-        description="Download the file, or copy its link to share it."
-      >
-        <div class="download-form">
-          <div>
-            <span class="field-label">Download URL</span>
-            <a href={downloadURL} class="download-link">{decodeURI(downloadURL)}</a>
-          </div>
-
-          <div class="download-actions">
-            <CopyButton text={downloadURL} />
-            <Button variant="primary" href={downloadURL} icon={Download}>Download File</Button>
-          </div>
-        </div>
-
-        {#if isImage}
-          <div class="card-section">
-            <h4 class="section-label">Image Conversion</h4>
-            <div class="conversion-buttons">
-              <Button href={convertedPath(downloadURL, "jpg")} icon={Image}>Convert to JPEG</Button>
-              <Button href={convertedPath(downloadURL, "png")} icon={Image}>Convert to PNG</Button>
-            </div>
-          </div>
-        {/if}
-      </Card>
-
-      <CommandLine
-        command={`curl -OJ ${shellQuote(`${window.location.origin}/${data.file.id}`)}`}
-      />
-    {/if}
-  {/if}
-
-  {#if data.file !== null}
-    <section class="info-section">
-      <div>
-        <h3><ShieldCheck />Privacy Policy</h3>
-        <p>
-          When downloading files, we <strong>permanently</strong> store: file ID and your IP address.
+  <section class="card file-info-card">
+    <span class="tile lg"
+      >{#if isImage}<Image />{:else}<FileText />{/if}</span
+    >
+    <div class="file-details">
+      <h3 class="file-name">{data.file.name}</h3>
+      <div class="meta-row">
+        <p class="meta-list">
+          <span>{formatSize(data.file.size)}</span>
+          {#if !data.file.isEncrypted}<span>{data.file.contentType}</span>{/if}
+          <span title={formatDateTime(data.file.expireAt)}>
+            {formatExpiry(data.file.expireAt, clock.now)}
+          </span>
         </p>
+        {#if data.file.isEncrypted}
+          <span class="badge"><Lock />Encrypted</span>
+        {/if}
       </div>
-    </section>
+    </div>
+    {#if data.file.folderId}
+      <Button href={folderPagePath(data.file.folderId)} icon={Folder}>Open Folder</Button>
+    {/if}
+  </section>
+
+  {#if data.file.isEncrypted}
+    <Card
+      icon={LockOpen}
+      title="Decrypt File"
+      description="This file is encrypted. Enter the passphrase to download and decrypt it."
+    >
+      <div class="download-form">
+        <div>
+          <label class="field-label" for="passphrase">Passphrase</label>
+          <PasswordInput
+            id="passphrase"
+            disabled={isDownloading || !!file}
+            bind:value={passphrase}
+            placeholder="Enter the passphrase"
+            onkeydown={async (event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                await downloadAndDecryptFile();
+              }
+            }}
+          />
+        </div>
+
+        {#if passphrase !== ""}
+          <Button
+            variant="primary"
+            block
+            icon={stage.icon}
+            disabled={isDownloading}
+            onclick={downloadAndDecryptFile}
+          >
+            {stage.label}
+          </Button>
+
+          {#if status}
+            <StatusMessage tone={status.tone}>{status.message}</StatusMessage>
+          {/if}
+        {/if}
+      </div>
+    </Card>
+
+    <CommandLine
+      command={`curl -s ${shellQuote(`${page.url.origin}/${data.file.id}`)} | openssl enc -d -aes-256-cbc -pbkdf2 > ${shellQuote(data.file.name)}`}
+    />
+  {:else}
+    <Card
+      icon={Download}
+      title="Download Options"
+      description="Download the file, or copy its link to share it."
+    >
+      <div class="download-form">
+        <div>
+          <span class="field-label">Download URL</span>
+          <a href={downloadURL} class="download-link">{decodeURI(downloadURL)}</a>
+        </div>
+
+        <div class="download-actions">
+          <CopyButton text={downloadURL} />
+          <Button variant="primary" href={downloadURL} icon={Download}>Download File</Button>
+        </div>
+      </div>
+
+      {#if isImage}
+        <div class="card-section">
+          <h4 class="section-label">Image Conversion</h4>
+          <div class="conversion-buttons">
+            <Button href={convertedPath(downloadURL, "jpg")} icon={Image}>Convert to JPEG</Button>
+            <Button href={convertedPath(downloadURL, "png")} icon={Image}>Convert to PNG</Button>
+          </div>
+        </div>
+      {/if}
+    </Card>
+
+    <CommandLine command={`curl -OJ ${shellQuote(`${page.url.origin}/${data.file.id}`)}`} />
   {/if}
-</main>
+
+  <section class="info-section">
+    <div>
+      <h3><ShieldCheck />Privacy Policy</h3>
+      <p>
+        When downloading files, we <strong>permanently</strong> store: file ID and your IP address.
+      </p>
+    </div>
+  </section>
+</div>

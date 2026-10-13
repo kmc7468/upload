@@ -1,9 +1,9 @@
 <script lang="ts">
-  import "$lib/style.css";
   import { archiveName } from "$lib/archive-name";
   import FolderNameEditor from "$lib/components/FolderNameEditor.svelte";
   import { SvelteURLSearchParams } from "svelte/reactivity";
   import { onMount, onDestroy } from "svelte";
+  import { page } from "$app/state";
   import FileSaver from "file-saver";
   import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
   import Download from "phosphor-svelte/lib/DownloadSimpleIcon";
@@ -16,7 +16,6 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import CommandLine from "$lib/components/CommandLine.svelte";
   import CopyButton from "$lib/components/CopyButton.svelte";
-  import NotFound from "$lib/components/NotFound.svelte";
   import StatusMessage from "$lib/components/StatusMessage.svelte";
   import {
     downloadPath,
@@ -34,19 +33,18 @@
 
   let { data } = $props();
 
-  let selected: string[] = $state([]);
+  // Every file starts selected, already in the page the server sends, and again whenever
+  // another folder opens.
+  let selected = $derived(data.folder.files.map((f) => f.id));
   let managementToken = $state("");
   let renamedFolder = $state<{ id: string; name: string } | null>(null);
   const folderName = $derived(
-    data.folder
-      ? (renamedFolder?.id === data.folder.id ? renamedFolder.name : data.folder.name) ||
-          `${data.folder.files.length} files`
-      : "Download Folder",
+    (renamedFolder?.id === data.folder.id ? renamedFolder.name : data.folder.name) ||
+      `${data.folder.files.length} files`,
   );
   $effect(() => {
-    const id = data.folder?.id;
+    const id = data.folder.id;
     managementToken = "";
-    if (!id) return;
     try {
       managementToken =
         getUploadedFiles().find((file) => file.kind === "folder" && file.id === id)
@@ -57,40 +55,38 @@
   });
 
   let passphrase = $state("");
-  let origin = $state("");
   let busy = $state(false);
   let status = $state("");
   let statusTone = $state<"progress" | "success" | "error">("progress");
   let includePassphrase = $state(true);
   let activeFileID: string | null = $state(null);
 
-  const cannotCopy = $derived(!!data.folder?.isEncrypted && includePassphrase && !passphrase);
+  const cannotCopy = $derived(data.folder.isEncrypted && includePassphrase && !passphrase);
   const shareURL = (pathname: string) =>
-    data.folder?.isEncrypted && includePassphrase && passphrase
-      ? withPassphrase(`${origin}${pathname}`, passphrase)
-      : `${origin}${pathname}`;
+    data.folder.isEncrypted && includePassphrase && passphrase
+      ? withPassphrase(`${page.url.origin}${pathname}`, passphrase)
+      : `${page.url.origin}${pathname}`;
 
   const fileURL = (file: { id: string; name: string }) =>
-    fileSharePath({ ...file, isEncrypted: !!data.folder?.isEncrypted });
+    fileSharePath({ ...file, isEncrypted: data.folder.isEncrypted });
 
   let encryptedArchive: ArrayBuffer | undefined;
   let encryptedSelection = "";
   const showImageConversion = $derived(
-    !!data.folder &&
-      !data.folder.isEncrypted &&
+    !data.folder.isEncrypted &&
       (data.folder.isDisposable
         ? data.folder.files.every((f) => f.contentType.startsWith("image/"))
         : data.folder.files.some((f) => f.contentType.startsWith("image/"))),
   );
   const conversionFiles = $derived(
-    data.folder?.files.filter((f) => data.folder!.isDisposable || selected.includes(f.id)) ?? [],
+    data.folder.files.filter((f) => data.folder.isDisposable || selected.includes(f.id)),
   );
   const conversionReason = $derived.by(() => {
     if (!conversionFiles.length) {
       return "Select at least one image to convert.";
     }
     if (conversionFiles.some((file) => !file.contentType.startsWith("image/"))) {
-      return data.folder?.isDisposable
+      return data.folder.isDisposable
         ? "Conversion is unavailable because Single Download requires all files, including non-image files."
         : "Only images can be converted. Deselect the non-image files to continue.";
     }
@@ -101,10 +97,8 @@
   });
 
   const archivePath = (format: "zip" | "tar") =>
-    downloadPath(data.folder!.id, archiveName(folderName, format));
-  const curlCommand = $derived(
-    data.folder ? `curl -OJ ${shellQuote(`${origin}/${data.folder.id}`)}` : "",
-  );
+    downloadPath(data.folder.id, archiveName(folderName, format));
+  const curlCommand = $derived(`curl -OJ ${shellQuote(`${page.url.origin}/${data.folder.id}`)}`);
   const url = (conversion = "", selection = false) => {
     const query = new SvelteURLSearchParams();
     if (conversion) query.set("conv", conversion);
@@ -113,13 +107,10 @@
   };
 
   onMount(() => {
-    origin = window.location.origin;
-    if (!data.folder) return;
-    selected = data.folder.files.map((f) => f.id);
     try {
       passphrase = window.location.hash
         ? passphraseFromHash(window.location.hash)
-        : getUploadedFiles().find((f) => f.kind === "folder" && f.id === data.folder!.id)
+        : getUploadedFiles().find((f) => f.kind === "folder" && f.id === data.folder.id)
             ?.passphrase || "";
     } catch {
       /* A malformed fragment can be replaced manually. */
@@ -134,7 +125,7 @@
     clearInterval(downloadTimer);
     downloadTimer = undefined;
     if (progressCookie && typeof document !== "undefined") {
-      document.cookie = `${progressCookie}=; Max-Age=0; Path=${folderPagePath(data.folder!.id)}; SameSite=Strict`;
+      document.cookie = `${progressCookie}=; Max-Age=0; Path=${folderPagePath(data.folder.id)}; SameSite=Strict`;
     }
 
     progressCookie = "";
@@ -166,7 +157,7 @@
         .find((cookie) => cookie.startsWith(`${progressCookie}=`));
       if (signal) finishConversionRequest(signal.slice(progressCookie.length + 1) === "started");
     }, 200);
-    conversionURL = `${url(type, !data.folder!.isDisposable)}&downloadToken=${token}`;
+    conversionURL = `${url(type, !data.folder.isDisposable)}&downloadToken=${token}`;
   }
 
   function checkDownloadFrame() {
@@ -176,7 +167,7 @@
   }
 
   async function downloadEncryptedFile(file: { id: string; name: string }) {
-    if (busy || !passphrase || data.folder!.isDisposable) return;
+    if (busy || !passphrase || data.folder.isDisposable) return;
     busy = true;
     statusTone = "progress";
     activeFileID = file.id;
@@ -221,7 +212,7 @@
       }
 
       FileSaver.saveAs(
-        createStoredZip(decrypted, data.folder!.uploadedAt),
+        createStoredZip(decrypted, data.folder.uploadedAt),
         archiveName(folderName, "zip"),
       );
       statusTone = "success";
@@ -243,212 +234,198 @@
   src={conversionURL}
   onload={checkDownloadFrame}
 ></iframe>
-<main class="page">
+<div class="page">
   <PageHeader title="Download Folder" />
-  {#if !data.folder}
-    <NotFound
-      title="Folder Not Found"
-      message="This folder has expired or is no longer available."
-    />
-  {:else}
-    <section class="card">
-      {#key data.folder.id}
-        <FolderNameEditor
-          variant="folder"
-          id={data.folder.id}
-          name={folderName}
-          fileCount={data.folder.files.length}
-          isEncrypted={data.folder.isEncrypted}
-          details={[
-            { text: formatSize(data.folder.files.reduce((sum, file) => sum + file.size, 0)) },
-            {
-              text: formatExpiry(data.folder.expireAt, clock.now),
-              title: formatDateTime(data.folder.expireAt),
-            },
-          ]}
-          {managementToken}
-          onsave={(name) => {
-            renamedFolder = { id: data.folder!.id, name };
-          }}
-        />
-      {/key}
-    </section>
-    <Card
-      icon={Download}
-      title="Download Files"
-      description={data.folder.isDisposable
-        ? "Single Download: download all files together once. The entire folder will then be deleted."
-        : "Download all files, choose individual files, or select a group."}
-    >
-      <div class="download-form">
-        {#if data.folder.isEncrypted}
-          <div>
-            <label class="field-label" for="passphrase">Passphrase</label>
-            <PasswordInput
-              id="passphrase"
-              bind:value={passphrase}
-              disabled={busy}
-              placeholder="Enter the passphrase"
-            />
-          </div>
-        {/if}
-        <div class="download-actions">
-          <CopyButton
-            text={() => shareURL(folderPagePath(data.folder!.id))}
-            disabled={cannotCopy}
+  <section class="card">
+    {#key data.folder.id}
+      <FolderNameEditor
+        variant="folder"
+        id={data.folder.id}
+        name={folderName}
+        fileCount={data.folder.files.length}
+        isEncrypted={data.folder.isEncrypted}
+        details={[
+          { text: formatSize(data.folder.files.reduce((sum, file) => sum + file.size, 0)) },
+          {
+            text: formatExpiry(data.folder.expireAt, clock.now),
+            title: formatDateTime(data.folder.expireAt),
+          },
+        ]}
+        {managementToken}
+        onsave={(name) => {
+          renamedFolder = { id: data.folder.id, name };
+        }}
+      />
+    {/key}
+  </section>
+  <Card
+    icon={Download}
+    title="Download Files"
+    description={data.folder.isDisposable
+      ? "Single Download: download all files together once. The entire folder will then be deleted."
+      : "Download all files, choose individual files, or select a group."}
+  >
+    <div class="download-form">
+      {#if data.folder.isEncrypted}
+        <div>
+          <label class="field-label" for="passphrase">Passphrase</label>
+          <PasswordInput
+            id="passphrase"
+            bind:value={passphrase}
+            disabled={busy}
+            placeholder="Enter the passphrase"
           />
-          {#if data.folder.isEncrypted}
-            <Button
-              variant="primary"
-              icon={LockOpen}
-              disabled={busy || !passphrase}
-              onclick={() => downloadEncrypted()}
-            >
-              <span>Decrypt &amp; Download <span class="keep-together">All (ZIP)</span></span>
-            </Button>
-          {:else}
-            <Button variant="primary" icon={Download} href={url()} disabled={busy} download>
-              <span>Download <span class="keep-together">All (ZIP)</span></span>
-            </Button>
-          {/if}
-        </div>
-        {#if data.folder.isEncrypted}
-          <label class="checkbox-label">
-            <input type="checkbox" bind:checked={includePassphrase} />
-            <span>Include passphrase in copied URLs</span>
-          </label>
-        {/if}
-        {#if status}
-          <StatusMessage tone={statusTone}>{status}</StatusMessage>
-        {/if}
-        <div class="file-list">
-          {#if !data.folder.isDisposable}
-            <label class="select-all">
-              <input
-                type="checkbox"
-                checked={selected.length === data.folder.files.length}
-                disabled={busy}
-                onchange={(event) =>
-                  (selected = event.currentTarget.checked
-                    ? data.folder!.files.map((f) => f.id)
-                    : [])}
-              />
-              Select All
-            </label>
-          {/if}
-          {#each data.folder.files as file (file.id)}
-            <div class="file-row" data-id={file.id}>
-              <label class="file-choice">
-                {#if !data.folder.isDisposable}
-                  <input type="checkbox" bind:group={selected} value={file.id} disabled={busy} />
-                {/if}
-                <span class="file-summary">
-                  <span>{file.name}</span>
-                  <span class="file-size">{formatSize(file.size)}</span>
-                </span>
-              </label>
-              {#if !data.folder.isDisposable}
-                <div class="file-actions">
-                  {#if data.folder.isEncrypted}
-                    <Button
-                      size="sm"
-                      icon={LockOpen}
-                      disabled={busy || !passphrase}
-                      onclick={() => downloadEncryptedFile(file)}
-                    >
-                      {activeFileID === file.id ? "Working..." : "Decrypt & Download"}
-                    </Button>
-                  {:else}
-                    <Button size="sm" icon={Download} href={fileURL(file)}>Download</Button>
-                  {/if}
-                  <CopyButton
-                    text={() => shareURL(fileURL(file))}
-                    variant="ghost"
-                    size="sm"
-                    iconOnly
-                    disabled={cannotCopy}
-                    label={data.folder.isEncrypted
-                      ? "Copy Decryption Page Link"
-                      : "Copy Download Link"}
-                  />
-                </div>
-              {/if}
-            </div>
-          {/each}
-        </div>
-        {#if !data.folder.isDisposable}
-          {#if data.folder.isEncrypted}
-            <Button
-              block
-              icon={LockOpen}
-              disabled={busy || !passphrase || !selected.length}
-              onclick={() => downloadEncrypted(true)}
-            >
-              <span>
-                Decrypt &amp; Download
-                <span class="keep-together">Selected ({selected.length})</span>
-              </span>
-            </Button>
-          {:else}
-            <Button
-              block
-              icon={Download}
-              disabled={busy || !selected.length}
-              onclick={() => window.location.assign(url("", true))}
-            >
-              <span>Download <span class="keep-together">Selected ({selected.length})</span></span>
-            </Button>
-          {/if}
-        {/if}
-      </div>
-      {#if showImageConversion}
-        <div class="card-section">
-          <h4 class="section-label">Image Conversion</h4>
-          <div class="conversion-buttons">
-            <Button
-              icon={Image}
-              disabled={busy || !!conversionReason}
-              onclick={() => downloadConverted("jpg")}
-            >
-              <span>
-                Convert {data.folder.isDisposable ? "All" : "Selected"} to
-                <span class="keep-together">JPEG</span>
-              </span>
-            </Button>
-            <Button
-              icon={Image}
-              disabled={busy || !!conversionReason}
-              onclick={() => downloadConverted("png")}
-            >
-              <span>
-                Convert {data.folder.isDisposable ? "All" : "Selected"} to
-                <span class="keep-together">PNG</span>
-              </span>
-            </Button>
-          </div>
-          {#if conversionReason}
-            <p class="conversion-reason">{conversionReason}</p>
-          {/if}
         </div>
       {/if}
-    </Card>
-
-    {#if !data.folder.isEncrypted}
-      <CommandLine command={curlCommand} />
-    {/if}
-  {/if}
-  {#if data.folder}
-    <section class="info-section">
-      <div>
-        <h3><ShieldCheck />Privacy Policy</h3>
-        <p>
-          When downloading files, we <strong>permanently</strong> store: folder ID, file IDs and your
-          IP address.
-        </p>
+      <div class="download-actions">
+        <CopyButton text={() => shareURL(folderPagePath(data.folder.id))} disabled={cannotCopy} />
+        {#if data.folder.isEncrypted}
+          <Button
+            variant="primary"
+            icon={LockOpen}
+            disabled={busy || !passphrase}
+            onclick={() => downloadEncrypted()}
+          >
+            <span>Decrypt &amp; Download <span class="keep-together">All (ZIP)</span></span>
+          </Button>
+        {:else}
+          <Button variant="primary" icon={Download} href={url()} disabled={busy} download>
+            <span>Download <span class="keep-together">All (ZIP)</span></span>
+          </Button>
+        {/if}
       </div>
-    </section>
+      {#if data.folder.isEncrypted}
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={includePassphrase} />
+          <span>Include passphrase in copied URLs</span>
+        </label>
+      {/if}
+      {#if status}
+        <StatusMessage tone={statusTone}>{status}</StatusMessage>
+      {/if}
+      <div class="file-list">
+        {#if !data.folder.isDisposable}
+          <label class="select-all">
+            <input
+              type="checkbox"
+              checked={selected.length === data.folder.files.length}
+              disabled={busy}
+              onchange={(event) =>
+                (selected = event.currentTarget.checked ? data.folder.files.map((f) => f.id) : [])}
+            />
+            Select All
+          </label>
+        {/if}
+        {#each data.folder.files as file (file.id)}
+          <div class="file-row" data-id={file.id}>
+            <label class="file-choice">
+              {#if !data.folder.isDisposable}
+                <input type="checkbox" bind:group={selected} value={file.id} disabled={busy} />
+              {/if}
+              <span class="file-summary">
+                <span>{file.name}</span>
+                <span class="file-size">{formatSize(file.size)}</span>
+              </span>
+            </label>
+            {#if !data.folder.isDisposable}
+              <div class="file-actions">
+                {#if data.folder.isEncrypted}
+                  <Button
+                    size="sm"
+                    icon={LockOpen}
+                    disabled={busy || !passphrase}
+                    onclick={() => downloadEncryptedFile(file)}
+                  >
+                    {activeFileID === file.id ? "Working..." : "Decrypt & Download"}
+                  </Button>
+                {:else}
+                  <Button size="sm" icon={Download} href={fileURL(file)}>Download</Button>
+                {/if}
+                <CopyButton
+                  text={() => shareURL(fileURL(file))}
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  disabled={cannotCopy}
+                  label={data.folder.isEncrypted
+                    ? "Copy Decryption Page Link"
+                    : "Copy Download Link"}
+                />
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+      {#if !data.folder.isDisposable}
+        {#if data.folder.isEncrypted}
+          <Button
+            block
+            icon={LockOpen}
+            disabled={busy || !passphrase || !selected.length}
+            onclick={() => downloadEncrypted(true)}
+          >
+            <span>
+              Decrypt &amp; Download
+              <span class="keep-together">Selected ({selected.length})</span>
+            </span>
+          </Button>
+        {:else}
+          <Button
+            block
+            icon={Download}
+            disabled={busy || !selected.length}
+            onclick={() => window.location.assign(url("", true))}
+          >
+            <span>Download <span class="keep-together">Selected ({selected.length})</span></span>
+          </Button>
+        {/if}
+      {/if}
+    </div>
+    {#if showImageConversion}
+      <div class="card-section">
+        <h4 class="section-label">Image Conversion</h4>
+        <div class="conversion-buttons">
+          <Button
+            icon={Image}
+            disabled={busy || !!conversionReason}
+            onclick={() => downloadConverted("jpg")}
+          >
+            <span>
+              Convert {data.folder.isDisposable ? "All" : "Selected"} to
+              <span class="keep-together">JPEG</span>
+            </span>
+          </Button>
+          <Button
+            icon={Image}
+            disabled={busy || !!conversionReason}
+            onclick={() => downloadConverted("png")}
+          >
+            <span>
+              Convert {data.folder.isDisposable ? "All" : "Selected"} to
+              <span class="keep-together">PNG</span>
+            </span>
+          </Button>
+        </div>
+        {#if conversionReason}
+          <p class="conversion-reason">{conversionReason}</p>
+        {/if}
+      </div>
+    {/if}
+  </Card>
+
+  {#if !data.folder.isEncrypted}
+    <CommandLine command={curlCommand} />
   {/if}
-</main>
+  <section class="info-section">
+    <div>
+      <h3><ShieldCheck />Privacy Policy</h3>
+      <p>
+        When downloading files, we <strong>permanently</strong> store: folder ID, file IDs and your IP
+        address.
+      </p>
+    </div>
+  </section>
+</div>
 
 <style>
   .keep-together {

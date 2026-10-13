@@ -6,6 +6,7 @@ import { MAX_FILE_SIZE } from "$lib/constants";
 import { readHead, servedContentType } from "../content-type";
 import { findFile } from "../db/file";
 import { cachedImagePath, convertedName, convertImage, mimeTypeOf, type FileType } from "../images";
+import { ID_REGEX } from "../loadenv";
 import logger from "../logger";
 import { FILE_TOO_LARGE, storedPath, storedSize } from "../storage";
 import { removeFolder, retainFolder, withFolderLock } from "./lifecycle";
@@ -166,3 +167,11 @@ export const deleteFile = (fileID: string, managementToken: string) =>
     if (file.expectedCount > 1) error(403, "Delete the folder instead.");
     await removeFolder(file.folderId);
   });
+
+// Returns the file's expiry for its owner, or undefined for anyone else.
+export const verifyFile = async (fileID: string, managementToken: string) => {
+  if (!ID_REGEX.test(fileID)) return undefined;
+  const file = await findFile(fileID);
+  if (!file || file.managementToken !== managementToken) return undefined;
+  return { expireAt: file.expireAt };
+};

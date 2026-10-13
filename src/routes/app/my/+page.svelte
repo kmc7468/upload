@@ -1,7 +1,7 @@
 <script lang="ts">
   import FolderNameEditor from "$lib/components/FolderNameEditor.svelte";
   import { onMount } from "svelte";
-  import { browser } from "$app/environment";
+  import { page } from "$app/state";
   import {
     getUploadedFiles,
     removeExpiredFiles,
@@ -15,7 +15,6 @@
   import Folder from "phosphor-svelte/lib/FolderIcon";
   import FolderOpen from "phosphor-svelte/lib/FolderOpenIcon";
   import KeyRound from "phosphor-svelte/lib/KeyIcon";
-  import LoaderCircle from "phosphor-svelte/lib/CircleNotchIcon";
   import Lock from "phosphor-svelte/lib/LockIcon";
   import Pencil from "phosphor-svelte/lib/PencilSimpleIcon";
   import Trash from "phosphor-svelte/lib/TrashIcon";
@@ -31,71 +30,9 @@
   import { formatDateTime, formatExpiry, plural } from "$lib/utils";
   import { filePagePath, fileSharePath, folderPagePath } from "$lib/urls";
 
-  import "$lib/style.css";
-
   let uploadedFiles: UploadedFile[] = $state([]);
-  let isLoading = $state(false);
-  let isInitializing = $state(true);
-  let validationProgress = $state({ current: 0, total: 0 });
-
-  const loadAndValidateFiles = async () => {
-    const storedFiles = getUploadedFiles();
-    if (storedFiles.length === 0) {
-      isInitializing = false;
-      return;
-    }
-
-    validationProgress = { current: 0, total: storedFiles.length };
-
-    // 순차적으로 파일 유효성 검사 (UI 업데이트를 위해)
-    const updatedFiles: UploadedFile[] = [];
-
-    for (let i = 0; i < storedFiles.length; i++) {
-      const file = storedFiles[i];
-      const result = await checkFile(file);
-
-      // 진행 상황을 새 객체로 업데이트
-      validationProgress = {
-        current: i + 1,
-        total: storedFiles.length,
-      };
-
-      // Without an answer from the server, the stored state is kept as it is.
-      if (!result) {
-        updatedFiles.push(file);
-        continue;
-      }
-      if (result.expireAt) {
-        expireAt[file.id] = result.expireAt;
-      }
-
-      // 이전에 만료되지 않았던 파일이 지금 만료되었는지 확인
-      const isNowExpired = !result.exists;
-
-      // 만료된 파일의 경우 passphrase 즉시 삭제 (보안)
-      const updatedFile = isNowExpired
-        ? { ...file, isExpired: true, passphrase: undefined }
-        : { ...file, isExpired: isNowExpired };
-
-      // 변경이 감지된 경우 즉시 localStorage 업데이트
-      if (file.isExpired !== updatedFile.isExpired || file.passphrase !== updatedFile.passphrase) {
-        updateUploadedFile(file.id, {
-          isExpired: updatedFile.isExpired,
-          passphrase: updatedFile.passphrase,
-        });
-      }
-
-      updatedFiles.push(updatedFile);
-
-      // UI 업데이트를 위한 짧은 지연
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-
-    // 파일 상태를 UI에 반영
-    uploadedFiles = updatedFiles;
-
-    isInitializing = false;
-  };
+  // The list lives in this browser, so the server sends the page without it.
+  let isLoaded = $state(false);
 
   // The outcome of the last delete or cleanup, shown below the header.
   let notice = $state<{ tone: "success" | "error"; message: string }>();
@@ -153,38 +90,47 @@
   // Expiry times reported by the server, kept for this visit only.
   let expireAt = $state<Record<string, number>>({});
 
-  // Returns undefined when the server could not answer, so a network error never marks a
-  // file as expired or discards its passphrase.
-  const checkFile = async (
-    file: UploadedFile,
-  ): Promise<{ exists: boolean; expireAt?: number } | undefined> => {
+  // The list is shown as stored at once, then corrected when the server answers for every
+  // upload in one request. Without an answer, the stored state is kept as it is, so a
+  // network error never marks a file as expired or discards its passphrase.
+  const validateFiles = async (files: UploadedFile[]) => {
+    let results: { exists: boolean; name?: string; expireAt?: number }[];
     try {
-      // Management token을 사용한 정확한 파일 검증
-      const response = await fetch(
-        `/api/${file.kind === "folder" ? "folder" : "file"}/${file.id}/verify`,
-        {
-          method: "GET",
-          headers: {
-            "X-Management-Token": file.managementToken,
-          },
-        },
-      );
-
-      if (response.status === 404) {
-        return { exists: false };
-      } else if (!response.ok) {
-        return undefined;
-      }
-
-      const result = await response.json();
-      if (file.kind === "folder" && result.exists && result.name) {
-        file.name = result.name;
-        updateUploadedFile(file.id, { name: result.name });
-      }
-      return { exists: result.exists, expireAt: result.expireAt };
+      const response = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uploads: files.map(({ kind = "file", id, managementToken }) => ({
+            kind,
+            id,
+            managementToken,
+          })),
+        }),
+      });
+      if (!response.ok) return;
+      ({ results } = await response.json());
     } catch {
-      return undefined;
+      return;
     }
+
+    files.forEach((file, index) => {
+      const result = results[index];
+      if (!result) return;
+      if (result.expireAt) expireAt[file.id] = result.expireAt;
+
+      // The passphrase of an expired file is discarded at once.
+      const updates: Partial<UploadedFile> = result.exists
+        ? { isExpired: false, name: (file.kind === "folder" && result.name) || file.name }
+        : { isExpired: true, passphrase: undefined };
+      // Storage is written only when something changed.
+      if (
+        Object.entries(updates).every(([key, value]) => file[key as keyof UploadedFile] === value)
+      )
+        return;
+
+      updateUploadedFile(file.id, updates);
+      uploadedFiles = uploadedFiles.map((f) => (f.id === file.id ? { ...f, ...updates } : f));
+    });
   };
 
   const cleanupExpiredFiles = async () => {
@@ -208,13 +154,7 @@
   const getDownloadUrl = (file: UploadedFile) =>
     file.kind === "folder" ? folderPagePath(file.id) : fileSharePath(file);
 
-  const getFullDownloadUrl = (file: UploadedFile) => {
-    const path = getDownloadUrl(file);
-    if (browser) {
-      return `${window.location.origin}${path}`;
-    }
-    return path;
-  };
+  const getFullDownloadUrl = (file: UploadedFile) => `${page.url.origin}${getDownloadUrl(file)}`;
 
   // The forms that rename folders, opened from each folder's Rename Folder button.
   let editors: Record<string, ReturnType<typeof FolderNameEditor>> = $state({});
@@ -231,7 +171,13 @@
   );
 
   onMount(() => {
-    loadAndValidateFiles(); // Intended
+    try {
+      uploadedFiles = getUploadedFiles();
+    } catch {
+      // Without browser storage there is nothing to list.
+    }
+    isLoaded = true;
+    if (uploadedFiles.length) validateFiles(uploadedFiles);
   });
 </script>
 
@@ -239,13 +185,13 @@
   <title>My Files - Minchan's Upload</title>
 </svelte:head>
 
-<main class="page">
+<div class="page">
   <PageHeader
     title="My Files"
     description="Uploads from this browser. This list stays on this device."
   >
     {#snippet actions()}
-      <Button icon={Trash} onclick={cleanupExpiredFiles} disabled={isLoading || expiredCount === 0}>
+      <Button icon={Trash} onclick={cleanupExpiredFiles} disabled={expiredCount === 0}>
         {expiredCount === 0
           ? "No Expired Files"
           : `Remove ${expiredCount} Expired ${expiredCount === 1 ? "File" : "Files"}`}
@@ -258,25 +204,8 @@
     <StatusMessage tone={notice.tone}>{notice.message}</StatusMessage>
   {/if}
 
-  {#if isInitializing}
-    <section class="card state" role="status">
-      <span class="tile lg spinning"><LoaderCircle /></span>
-      <h3>Checking Files...</h3>
-      <p>Verifying your uploaded files are still available.</p>
-      {#if validationProgress.total > 0}
-        <div class="progress-container">
-          <div class="progress-bar">
-            <div
-              class="progress-fill"
-              style="width: {(validationProgress.current / validationProgress.total) * 100}%"
-            ></div>
-          </div>
-          <div class="progress-text">
-            {validationProgress.current} / {validationProgress.total} files checked
-          </div>
-        </div>
-      {/if}
-    </section>
+  {#if !isLoaded}
+    <!-- Nothing is shown until the list is read from this browser. -->
   {:else if uploadedFiles.length === 0}
     <section class="card state">
       <span class="tile lg"><FolderOpen /></span>
@@ -286,25 +215,24 @@
   {:else}
     <ul class="card file-list">
       {#each sortedFiles as file (file.id)}
-        <!-- The row opens the file; its buttons are also reachable by keyboard. -->
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <li
-          class="file-row"
-          class:expired={file.isExpired}
-          onclick={() => {
-            if (!file.isExpired) {
-              window.location.href =
-                file.kind === "folder" ? folderPagePath(file.id) : filePagePath(file.id);
-            }
-          }}
-        >
+        <li class="file-row" class:expired={file.isExpired}>
           <span class={["tile", { muted: file.isExpired }]}>
             {#if file.kind === "folder"}<Folder />{:else}<FileText />{/if}
           </span>
           <div class="file-main">
             <div class="file-heading">
-              <h3 class="file-title" title={file.name}>{file.name}</h3>
+              <h3 class="file-title" title={file.name}>
+                {#if file.isExpired}
+                  {file.name}
+                {:else}
+                  <!-- The link covers the whole row, so any part of it opens the file. -->
+                  <a
+                    class="row-link"
+                    href={file.kind === "folder" ? folderPagePath(file.id) : filePagePath(file.id)}
+                    >{file.name}</a
+                  >
+                {/if}
+              </h3>
               {#if file.isEncrypted}
                 <span class="badge"><Lock />Encrypted</span>
               {/if}
@@ -328,10 +256,7 @@
           </div>
 
           {#if !file.isExpired}
-            <!-- The whole row opens the file, so its buttons keep their clicks. -->
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="file-actions" onclick={(event) => event.stopPropagation()}>
+            <div class="file-actions">
               <Button
                 size="sm"
                 icon={Download}
@@ -393,7 +318,7 @@
       {/each}
     </ul>
   {/if}
-</main>
+</div>
 
 <style>
   .state {
@@ -406,22 +331,6 @@
 
   .state .tile {
     margin-bottom: 16px;
-  }
-
-  .spinning :global(svg) {
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .spinning :global(svg) {
-      animation: none;
-    }
   }
 
   .state h3 {
@@ -438,33 +347,6 @@
     color: var(--color-text-secondary);
   }
 
-  .progress-container {
-    width: 100%;
-    max-width: 240px;
-    margin-top: 20px;
-  }
-
-  .progress-bar {
-    height: 6px;
-    margin-bottom: 8px;
-    background: var(--color-accent-border);
-    border-radius: var(--radius-pill);
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: var(--color-accent);
-    border-radius: var(--radius-pill);
-    transition: width 0.3s ease;
-  }
-
-  .progress-text {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
   /* One card holds every file, divided by hairlines. */
   .file-list {
     margin: 0;
@@ -475,12 +357,14 @@
 
   .file-row {
     --row-indent: calc(40px + 14px);
+    position: relative;
+    /* The layers below stay within the row. */
+    isolation: isolate;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 12px 14px;
     padding: 16px 20px;
-    cursor: pointer;
     transition: background var(--transition);
   }
 
@@ -490,10 +374,6 @@
 
   .file-row:not(.expired):hover {
     background: var(--color-surface-hover);
-  }
-
-  .file-row.expired {
-    cursor: default;
   }
 
   .file-row.expired .file-main {
@@ -524,11 +404,45 @@
     color: var(--color-text);
   }
 
+  .row-link {
+    color: inherit;
+    font-weight: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .row-link:hover {
+    text-decoration: none;
+  }
+
+  /* Layered over the meta list, whose clip-path would otherwise paint it above the link. */
+  .row-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  /* The ring is drawn around the row the link covers, inside the card's rounded edge. */
+  .row-link:focus-visible {
+    outline: none;
+  }
+
+  .row-link:focus-visible::after {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+
+  /* Buttons and the rename form sit above the link, and the gaps between them open nothing. */
+  .file-actions,
+  .file-editor {
+    position: relative;
+    z-index: 2;
+  }
+
   .file-actions {
     display: flex;
     align-items: center;
     gap: 2px;
-    cursor: default;
   }
 
   /* The download button stands a little apart from the icon buttons after it. */
@@ -540,7 +454,6 @@
   .file-editor {
     flex-basis: 100%;
     padding-left: var(--row-indent);
-    cursor: default;
   }
 
   .file-editor:not(:has(form)) {

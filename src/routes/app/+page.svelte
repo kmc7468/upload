@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { writable } from "svelte/store";
-  import { browser } from "$app/environment";
+  import { page } from "$app/state";
   import Clock from "phosphor-svelte/lib/ClockIcon";
   import Files from "phosphor-svelte/lib/FilesIcon";
   import HardDrive from "phosphor-svelte/lib/HardDrivesIcon";
@@ -13,17 +14,20 @@
   import { shellQuote } from "$lib/shell";
   import FileUploader from "./FileUploader.svelte";
 
-  import "$lib/style.css";
-
   let { data } = $props();
 
   let isDisposable = $state(false);
   let isEnabledEncryption = $state(false);
   const isUploading = writable(false);
 
+  // Browsers encrypt only on secure (HTTPS) pages. The option is in the page the server
+  // sends, and is taken out in the rare browser that cannot use it.
+  let canEncrypt = $state(true);
+  onMount(() => (canEncrypt = !!window.crypto?.subtle));
+
   // "filename" is shown as a placeholder for the user's file.
   const curlCommand = $derived.by(() => {
-    const origin = browser ? window.location.origin : "";
+    const { origin } = page.url;
     const options = `${isDisposable ? "d" : ""}${isEnabledEncryption ? "e" : ""}`;
     return isEnabledEncryption
       ? `openssl enc -e -aes-256-cbc -pbkdf2 < filename | curl -T - ${shellQuote(`${origin}/${options}/filename`)}`
@@ -35,7 +39,7 @@
   <title>Minchan's Upload</title>
 </svelte:head>
 
-<main class="page">
+<div class="page">
   <PageHeader
     title="Upload Files"
     description={`Share files for ${data.fileExpiry} from your browser or terminal.`}
@@ -62,7 +66,7 @@
         />
       </label>
 
-      {#if browser && window.crypto.subtle}
+      {#if canEncrypt}
         <label class="option">
           <span class="option-text">
             <strong>End-to-End Encryption</strong>
@@ -84,9 +88,7 @@
     </div>
   </section>
 
-  {#if browser}
-    <CommandLine command={curlCommand} placeholder="filename" />
-  {/if}
+  <CommandLine command={curlCommand} placeholder="filename" />
 
   <section class="info-section">
     <div>
@@ -116,7 +118,7 @@
     <strong>Do not upload illegal or sensitive files!</strong>
     Use this service responsibly and at your own risk.
   </StatusMessage>
-</main>
+</div>
 
 <style>
   .options {
