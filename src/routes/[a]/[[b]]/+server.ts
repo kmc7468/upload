@@ -1,12 +1,28 @@
 import { findFolder, folderDownloadResponse, deleteFolder } from "$lib/server/folders";
 import { error, redirect, text } from "@sveltejs/kit";
+import { contentDisposition, fileResponse } from "$lib/server/http";
 import { ID_REGEX } from "$lib/server/loadenv";
 import {
   fileDownloadHandler,
   fileDeleteHandler,
+  fileInspectHandler,
   fileUploadHandler,
 } from "$lib/server/services/files";
 import type { RequestHandler } from "./$types";
+
+const requiredTypeOf = (url: URL) => {
+  if (url.searchParams.has("jpeg") || url.searchParams.has("jpg")) {
+    return "jpeg";
+  } else if (url.searchParams.has("png")) {
+    return "png";
+  } else {
+    return undefined;
+  }
+};
+
+// A name in the URL asks for a download; a bare ID is shown inline when the type allows.
+const dispositionOf = (storedName: string, urlName?: string) =>
+  urlName ? contentDisposition("attachment", urlName) : contentDisposition("inline", storedName);
 
 export const GET: RequestHandler = async ({ params, request, url, cookies, getClientAddress }) => {
   const fileID = params.a;
@@ -28,32 +44,14 @@ export const GET: RequestHandler = async ({ params, request, url, cookies, getCl
     return folderDownloadResponse(fileID, request, url, cookies, getClientAddress);
   }
 
-  const requiredType = (() => {
-    if (url.searchParams.has("jpeg") || url.searchParams.has("jpg")) {
-      return "jpeg";
-    } else if (url.searchParams.has("png")) {
-      return "png";
-    } else {
-      return undefined;
-    }
-  })();
-
   const file = await fileDownloadHandler({
     fileID,
-    requiredType,
+    requiredType: requiredTypeOf(url),
 
     clientAddress: getClientAddress(),
   });
 
-  return new Response(Buffer.isBuffer(file.content) ? new Uint8Array(file.content) : file.content, {
-    headers: {
-      "Content-Disposition": fileName
-        ? `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
-        : "inline",
-      "Content-Type": "", // Let the browser infer it
-      "Content-Length": file.contentLength.toString(),
-    },
-  });
+  return fileResponse(file, dispositionOf(file.name, fileName));
 };
 
 const isValidFileAttr = (fileAttr: string) => {
@@ -85,7 +83,7 @@ export const POST: RequestHandler = async ({ request, params, url, getClientAddr
   return text(
     isEncrypted
       ? `curl -s ${url.origin}/${fileID} | openssl enc -d -aes-256-cbc -pbkdf2 > "${fileName}"\n`
-      : `curl -O ${downloadURL}\n`,
+      : `curl -OJ ${downloadURL}\n`,
     {
       headers: {
         "Content-Type": "text/plain",
@@ -122,9 +120,17 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
   return new Response(null, { status: 204 });
 };
 
-// Preserve legacy file HEAD behavior, while preventing folder probes from consuming a download.
-export const HEAD: RequestHandler = async (event) => {
-  if (await findFolder(event.params.a))
+// Probes must never consume a Single Download file or folder.
+export const HEAD: RequestHandler = async ({ params, url }) => {
+  const fileID = params.a;
+  if (!ID_REGEX.test(fileID)) {
+    error(404);
+  }
+
+  if (await findFolder(fileID)) {
     return new Response(null, { status: 405, headers: { Allow: "GET" } });
-  return GET(event);
+  }
+
+  const file = await fileInspectHandler({ fileID, requiredType: requiredTypeOf(url) });
+  return fileResponse(file, dispositionOf(file.name, params.b));
 };

@@ -333,13 +333,13 @@
                 <span class="curl-label">Or use command line:</span>
                 <div class="curl-container">
                   <code class="curl-command-inline">
-                    curl -O "{window.location.origin}/{data.file.id}/{data.file.name}"
+                    curl -OJ "{downloadURL}"
                   </code>
                   <button
                     type="button"
                     class="curl-copy-btn"
                     onclick={() => {
-                      const command = `curl -O "${window.location.origin}/${data.file.id}/${data.file.name}"`;
+                      const command = `curl -OJ "${downloadURL}"`;
                       navigator.clipboard.writeText(command);
                     }}
                   >

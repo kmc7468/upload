@@ -1,6 +1,11 @@
 import { error } from "@sveltejs/kit";
+import { contentDisposition, fileResponse } from "$lib/server/http";
 import { ID_REGEX } from "$lib/server/loadenv";
-import { fileDownloadHandler, fileDeleteHandler } from "$lib/server/services/files";
+import {
+  fileDownloadHandler,
+  fileDeleteHandler,
+  fileInspectHandler,
+} from "$lib/server/services/files";
 import type { RequestHandler } from "./$types";
 
 const determineRequiredType = (requiredType: string | null) => {
@@ -28,14 +33,21 @@ export const GET: RequestHandler = async ({ params, url, getClientAddress }) => 
     clientAddress: getClientAddress(),
   });
 
-  return new Response(Buffer.isBuffer(file.content) ? new Uint8Array(file.content) : file.content, {
-    headers: {
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
-      "Content-Type": file.contentType,
-      "Content-Length": file.contentLength.toString(),
-      "X-Content-Encryption": file.isEncrypted.toString(),
-    },
+  return fileResponse(file, contentDisposition("attachment", file.name));
+};
+
+// Probes must never consume a Single Download file.
+export const HEAD: RequestHandler = async ({ params, url }) => {
+  const fileID = params.id;
+  if (!ID_REGEX.test(fileID)) {
+    error(404);
+  }
+
+  const file = await fileInspectHandler({
+    fileID,
+    requiredType: determineRequiredType(url.searchParams.get("conv")),
   });
+  return fileResponse(file, contentDisposition("attachment", file.name));
 };
 
 export const DELETE: RequestHandler = async ({ request, params }) => {

@@ -1,6 +1,12 @@
 import { error } from "@sveltejs/kit";
 import { MAX_FILE_SIZE } from "$lib/constants";
-import { downloadFile, deleteAndUnlinkFile, uploadFile, type FileType } from "../filesystem";
+import {
+  downloadFile,
+  deleteAndUnlinkFile,
+  inspectFile,
+  uploadFile,
+  type FileType,
+} from "../filesystem";
 import logger from "../logger";
 
 interface FileUploadContext {
@@ -65,6 +71,15 @@ export const fileDownloadHandler = async (context: FileDownloadContext) => {
   }
 
   logger.info(`File "${fileID}" downloaded by "${context.clientAddress}"`);
+
+  return file;
+};
+
+export const fileInspectHandler = async (context: Omit<FileDownloadContext, "clientAddress">) => {
+  const file = await inspectFile(context.fileID, context.requiredType);
+  if (!file) {
+    error(404);
+  }
 
   return file;
 };

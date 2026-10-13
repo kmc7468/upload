@@ -19,8 +19,8 @@ export async function reserveID() {
     try {
       if (
         existsSync(path.join(UPLOAD_DIR, id)) ||
-        (await db!.selectFrom("file").select("id").where("id", "=", id).executeTakeFirst()) ||
-        (await db!.selectFrom("folder").select("id").where("id", "=", id).executeTakeFirst())
+        (await db().selectFrom("file").select("id").where("id", "=", id).executeTakeFirst()) ||
+        (await db().selectFrom("folder").select("id").where("id", "=", id).executeTakeFirst())
       ) {
         reserved.delete(id);
         continue;

@@ -2,7 +2,7 @@ import db from "./kysely";
 
 // Lifecycle and authorization belong to the parent, including single-file uploads.
 export const findFile = async (id: string) =>
-  db!
+  db()
     .selectFrom("file")
     .innerJoin("folder", "folder.id", "file.folderId")
     .selectAll("file")
@@ -20,6 +20,6 @@ export const findFile = async (id: string) =>
     .executeTakeFirst();
 
 export const getAllFileIDs = async () => {
-  const result = await db!.selectFrom("file").select("id").execute();
+  const result = await db().selectFrom("file").select("id").execute();
   return result.map((row) => row.id);
 };

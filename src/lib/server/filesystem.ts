@@ -9,6 +9,7 @@ import { pipeline } from "node:stream/promises";
 import path from "path";
 import sharp from "sharp";
 import { MAX_CONVERTIBLE_IMAGE_SIZE, MAX_FILE_SIZE } from "../constants";
+import { readHead, servedContentType } from "./content-type";
 import { findFile, getAllFileIDs } from "./db/file";
 import { UPLOAD_DIR, CACHE_DIR, FILE_EXPIRY } from "./loadenv";
 
@@ -23,6 +24,11 @@ const convertToMIMEType = (type: FileType) => {
       return "image/png";
   }
 };
+
+export const convertedName = (name: string, type: FileType) =>
+  name.replace(/\.[^.]*$/, "") + (type === "jpeg" ? ".jpg" : ".png");
+
+type DownloadableFile = NonNullable<Awaited<ReturnType<typeof findFile>>>;
 
 interface FileAttributes {
   folderId?: string;
@@ -81,42 +87,44 @@ export const uploadFile = async (file: ReadableStream<Uint8Array>, attributes: F
     try {
       if (!attributes.folderId) ownFolderID = await reserveID();
       const folderId = attributes.folderId ?? ownFolderID!;
-      managementToken = await db!.transaction().execute(async (trx) => {
-        if (ownFolderID) {
-          const now = Date.now();
+      managementToken = await db()
+        .transaction()
+        .execute(async (trx) => {
+          if (ownFolderID) {
+            const now = Date.now();
+            await trx
+              .insertInto("folder")
+              .values({
+                id: ownFolderID,
+                name: null,
+                managementToken: crypto.randomBytes(32).toString("hex"),
+                uploadedAt: now,
+                expireAt: now + FILE_EXPIRY,
+                isDisposable: +attributes.isDisposable,
+                isEncrypted: +attributes.isEncrypted,
+                expectedCount: 1,
+                ready: 1,
+              })
+              .execute();
+          }
+          const folder = await trx
+            .selectFrom("folder")
+            .selectAll()
+            .where("id", "=", folderId)
+            .executeTakeFirstOrThrow();
+          if (folder.expireAt <= Date.now()) error(410, "The upload has expired.");
           await trx
-            .insertInto("folder")
+            .insertInto("file")
             .values({
-              id: ownFolderID,
-              name: null,
-              managementToken: crypto.randomBytes(32).toString("hex"),
-              uploadedAt: now,
-              expireAt: now + FILE_EXPIRY,
-              isDisposable: +attributes.isDisposable,
-              isEncrypted: +attributes.isEncrypted,
-              expectedCount: 1,
-              ready: 1,
+              id: fileID,
+              folderId,
+              name: attributes.name,
+              contentType: determineContentType(attributes.contentType),
+              position: attributes.position ?? 0,
             })
             .execute();
-        }
-        const folder = await trx
-          .selectFrom("folder")
-          .selectAll()
-          .where("id", "=", folderId)
-          .executeTakeFirstOrThrow();
-        if (folder.expireAt <= Date.now()) error(410, "The upload has expired.");
-        await trx
-          .insertInto("file")
-          .values({
-            id: fileID,
-            folderId,
-            name: attributes.name,
-            contentType: determineContentType(attributes.contentType),
-            position: attributes.position ?? 0,
-          })
-          .execute();
-        return folder.managementToken;
-      });
+          return folder.managementToken;
+        });
     } catch (cause) {
       await fs.rm(filePath, { force: true });
       throw cause;
@@ -183,6 +191,35 @@ export const cachedImagePath = async (fileID: string, type: FileType) => {
   }
 };
 
+const checkDownloadable = (file: DownloadableFile, requiredType?: FileType) => {
+  if (file.isDisposable && file.expectedCount > 1)
+    error(403, "Single Download folders must be downloaded together.");
+  if (file.isEncrypted && requiredType !== undefined) error(400);
+};
+
+// Answers HEAD probes without converting the image or consuming a Single Download.
+// The size of a converted image is unknown until it is converted, so it is omitted.
+export const inspectFile = async (fileID: string, requiredType?: FileType) => {
+  const initial = await findFile(fileID);
+  if (!initial) return null;
+  const { withFolderLock } = await import("./folders");
+  return withFolderLock(initial.folderId, async () => {
+    const file = await findFile(fileID);
+    if (!file) return null;
+    checkDownloadable(file, requiredType);
+
+    const filePath = path.join(UPLOAD_DIR, fileID);
+    return {
+      name: requiredType ? convertedName(file.name, requiredType) : file.name,
+      contentType: requiredType
+        ? convertToMIMEType(requiredType)
+        : servedContentType(file.contentType, await readHead(filePath)),
+      contentLength: requiredType ? undefined : (await fs.stat(filePath)).size,
+      isEncrypted: !!file.isEncrypted,
+    };
+  });
+};
+
 export const downloadFile = async (fileID: string, requiredType?: FileType) => {
   const initial = await findFile(fileID);
   if (!initial) return null;
@@ -190,10 +227,8 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
   return withFolderLock(initial.folderId, async () => {
     const file = await findFile(fileID);
     if (!file) return null;
-    if (file.isDisposable && file.expectedCount > 1)
-      error(403, "Single Download folders must be downloaded together.");
+    checkDownloadable(file, requiredType);
     const isEncrypted = !!file.isEncrypted;
-    if (isEncrypted && requiredType !== undefined) error(400);
 
     if (requiredType !== undefined) {
       // Prepare the result before consuming a disposable folder so conversion
@@ -208,7 +243,7 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
         content = await fs.readFile(await cachedImagePath(fileID, requiredType));
       }
       return {
-        name: file.name,
+        name: convertedName(file.name, requiredType),
         content,
         contentType: convertToMIMEType(requiredType),
         contentLength: content.byteLength,
@@ -218,6 +253,7 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
 
     const filePath = path.join(UPLOAD_DIR, fileID);
     const size = (await fs.stat(filePath)).size;
+    const contentType = servedContentType(file.contentType, await readHead(filePath));
     const release = retainFolder(file.folderId);
     try {
       if (file.isDisposable) await removeFolder(file.folderId);
@@ -228,7 +264,7 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
       return {
         name: file.name,
         content: Readable.toWeb(stream) as ReadableStream<Uint8Array>,
-        contentType: file.contentType,
+        contentType,
         contentLength: size,
         isEncrypted,
       };
@@ -280,7 +316,7 @@ export const synchronizeWithDatabase = async () => {
   );
   await Promise.all(
     calcDifference(fileIDsInDB, fileIDsInFS).map(async (fileID) => {
-      const file = await db!
+      const file = await db()
         .selectFrom("file")
         .selectAll()
         .where("id", "=", fileID)

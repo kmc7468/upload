@@ -7,10 +7,11 @@ import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
 import { archiveName } from "$lib/archive-name";
 import { reserveID, releaseID } from "./ids";
 import db from "./db/kysely";
-import { cachedImagePath, uploadFile, type FileType } from "./filesystem";
+import { cachedImagePath, convertedName, uploadFile, type FileType } from "./filesystem";
 import { CACHE_DIR, UPLOAD_DIR, FILE_EXPIRY } from "./loadenv";
 import logger from "./logger";
 import { zip, tar, type ArchiveEntry } from "./archive";
+import { contentDisposition } from "./http";
 
 const locks = new Map<string, Promise<unknown>>();
 
@@ -28,7 +29,7 @@ export async function withFolderLock<T>(id: string, action: () => Promise<T>): P
 }
 
 export const findFolder = (id: string) =>
-  db!
+  db()
     .selectFrom("folder")
     .selectAll()
     .where("id", "=", id)
@@ -36,7 +37,7 @@ export const findFolder = (id: string) =>
     .executeTakeFirst();
 
 export const folderFiles = (id: string) =>
-  db!
+  db()
     .selectFrom("file")
     .selectAll()
     .where("folderId", "=", id)
@@ -62,7 +63,7 @@ export async function createFolder(count: number, disposable: boolean, encrypted
       ready: 0,
       name: null,
     };
-    await db!.insertInto("folder").values(folder).execute();
+    await db().insertInto("folder").values(folder).execute();
     return folder;
   } finally {
     releaseID(id);
@@ -134,7 +135,7 @@ export async function finishFolder(id: string, token: string | null) {
     if ((await folderFiles(id)).length !== folder.expectedCount) {
       error(409, "The upload is incomplete.");
     }
-    await db!.updateTable("folder").set({ ready: 1 }).where("id", "=", id).execute();
+    await db().updateTable("folder").set({ ready: 1 }).where("id", "=", id).execute();
   });
 }
 
@@ -152,7 +153,7 @@ export async function renameFolder(id: string, token: string | null, name: unkno
       error(400, "Folder name contains invalid characters.");
     }
     const normalized = name.trim();
-    await db!.updateTable("folder").set({ name: normalized }).where("id", "=", id).execute();
+    await db().updateTable("folder").set({ name: normalized }).where("id", "=", id).execute();
     return { name: normalized };
   });
 }
@@ -178,10 +179,12 @@ export function retainFolder(id: string) {
 
 export async function removeFolder(id: string) {
   const files = await folderFiles(id);
-  await db!.transaction().execute(async (trx) => {
-    await trx.deleteFrom("file").where("folderId", "=", id).execute();
-    await trx.deleteFrom("folder").where("id", "=", id).execute();
-  });
+  await db()
+    .transaction()
+    .execute(async (trx) => {
+      await trx.deleteFrom("file").where("folderId", "=", id).execute();
+      await trx.deleteFrom("folder").where("id", "=", id).execute();
+    });
   const cleanup = () =>
     Promise.all(
       files
@@ -210,7 +213,7 @@ export async function deleteFolder(id: string, token: string | null) {
 }
 
 export async function expireFolders() {
-  const folders = await db!
+  const folders = await db()
     .selectFrom("folder")
     .select("id")
     .where("expireAt", "<=", Date.now())
@@ -309,9 +312,7 @@ export async function downloadFolder(id: string, request: Request, url: URL, add
       const filePath = path.join(UPLOAD_DIR, file.id);
       const size = (await fs.stat(filePath)).size;
       if (type && size > MAX_CONVERTIBLE_IMAGE_SIZE) error(413);
-      const name = type
-        ? file.name.replace(/\.[^.]*$/, "") + (type === "jpeg" ? ".jpg" : ".png")
-        : file.name;
+      const name = type ? convertedName(file.name, type) : file.name;
       originals.push({
         name: safeName(name, used),
         path: filePath,
@@ -369,13 +370,6 @@ export async function downloadFolder(id: string, request: Request, url: URL, add
         `Folder "${id}" (File ${selected.map((file) => `"${file.id}"`).join(", ")}) downloaded by "${address}"`,
       );
       const filename = archiveName(folder.name || defaultFolderName(files), format);
-      // curl -J uses filename rather than filename*. Send UTF-8 bytes in the
-      // quoted fallback too, while browsers can use the RFC 5987 parameter.
-      const downloadFilename = Buffer.from(filename, "utf8").toString("latin1");
-      const encodedFilename = encodeURIComponent(filename).replace(
-        /[!'()*]/g,
-        (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
-      );
       return new Response(
         Readable.toWeb(stream, {
           strategy: { highWaterMark: 64 * 1024, size: (chunk) => chunk.byteLength },
@@ -383,7 +377,7 @@ export async function downloadFolder(id: string, request: Request, url: URL, add
         {
           headers: {
             "Content-Type": format === "zip" ? "application/zip" : "application/x-tar",
-            "Content-Disposition": `attachment; filename="${downloadFilename}"; filename*=UTF-8''${encodedFilename}`,
+            "Content-Disposition": contentDisposition("attachment", filename),
             "Cache-Control": "no-store",
             "X-Accel-Buffering": "no",
             Vary: "User-Agent",

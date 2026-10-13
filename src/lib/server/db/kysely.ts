@@ -2,25 +2,35 @@ import SQLite3 from "better-sqlite3";
 import { Kysely, SqliteDialect } from "kysely";
 import { Migrator } from "kysely/migration";
 import path from "path";
-import { building } from "$app/environment";
 import { DATA_DIR } from "../loadenv";
 import logger from "../logger";
 import type Schema from "./schema";
 import migrations from "./migrations";
 
-const dialect = building
-  ? undefined
-  : new SqliteDialect({
-      database: new SQLite3(path.join(DATA_DIR, "database.sqlite")),
-    });
+let instance: Kysely<Schema> | undefined;
 
-const db = dialect && new Kysely<Schema>({ dialect });
+// Opened by the init hook once the data directory exists, never at import time.
+export const openDatabase = () => {
+  instance ??= new Kysely<Schema>({
+    dialect: new SqliteDialect({
+      database: new SQLite3(path.join(DATA_DIR, "database.sqlite")),
+    }),
+  });
+};
+
+const db = () => {
+  if (!instance) {
+    throw new Error("Database is not initialized");
+  }
+
+  return instance;
+};
 
 export const migrate = async () => {
   logger.info("Database migration started...");
 
   const migrator = new Migrator({
-    db: db!,
+    db: db(),
     provider: {
       getMigrations: async () => {
         return migrations;

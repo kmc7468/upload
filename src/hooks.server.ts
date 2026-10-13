@@ -1,9 +1,10 @@
-import { type HandleServerError } from "@sveltejs/kit";
+import { type HandleServerError, type ServerInit } from "@sveltejs/kit";
 import fs from "fs";
 import path from "path";
 import schedule from "node-schedule";
+import { building } from "$app/environment";
 import * as constants from "$lib/constants";
-import { migrate as migrateDatabase } from "$lib/server/db/kysely";
+import { openDatabase, migrate as migrateDatabase } from "$lib/server/db/kysely";
 import { unlinkExpiredFiles, synchronizeWithDatabase } from "$lib/server/filesystem";
 import * as loadenv from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
@@ -16,7 +17,10 @@ const mkdirIfNotExist = (dirPath: string) => {
   }
 };
 
-const initializeServer = async () => {
+// SvelteKit awaits this before serving the first request.
+export const init: ServerInit = async () => {
+  if (building) return;
+
   // 환경 변수 덤프
   logger.verbose(`DATA_DIR=${path.resolve(loadenv.DATA_DIR)}`);
   logger.verbose(`UPLOAD_DIR=${path.resolve(loadenv.UPLOAD_DIR)}`);
@@ -37,6 +41,7 @@ const initializeServer = async () => {
   mkdirIfNotExist(loadenv.LOG_DIR);
 
   // 데이터베이스 초기화
+  openDatabase();
   await migrateDatabase();
   await synchronizeWithDatabase();
   await unlinkExpiredFiles();
@@ -62,5 +67,3 @@ export const handleError: HandleServerError = ({ error }) => {
 
   logger.error(error);
 };
-
-initializeServer();
