@@ -105,7 +105,11 @@
     });
     xhr.addEventListener("load", async () => {
       if (xhr.status === 201) {
-        const fileID = xhr.responseText;
+        // Location is the download URL, /<id>/<name>.
+        const fileID = new URL(
+          xhr.getResponseHeader("Location")!,
+          window.location.origin,
+        ).pathname.split("/")[1];
         const managementToken = xhr.getResponseHeader("X-Management-Token");
         const isImage =
           fileType.startsWith("image/") && targetFile.size <= MAX_CONVERTIBLE_IMAGE_SIZE;
@@ -170,12 +174,13 @@
       uploadStatus.updateUploadProgress(percent, throughput);
     });
 
-    xhr.open("POST", "/api/file");
+    // Upload through the same endpoint as curl -T, so the web and the command line
+    // cannot drift apart.
+    const options = `${isDisposable ? "d" : ""}${isEnabledEncryption ? "e" : ""}`;
+    const name = encodeURIComponent(targetFile.name);
+    xhr.open("PUT", options ? `/${options}/${name}` : `/${name}`);
 
     xhr.setRequestHeader("Content-Type", fileType || "application/octet-stream");
-    xhr.setRequestHeader("X-Content-Name", encodeURIComponent(targetFile.name));
-    xhr.setRequestHeader("X-Content-Disposable", isDisposable.toString());
-    xhr.setRequestHeader("X-Content-Encryption", isEnabledEncryption.toString());
 
     xhr.send(targetContent);
   };

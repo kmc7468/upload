@@ -1,4 +1,4 @@
-import { type HandleServerError, type ServerInit } from "@sveltejs/kit";
+import { type Handle, type HandleServerError, type ServerInit } from "@sveltejs/kit";
 import fs from "fs";
 import path from "path";
 import schedule from "node-schedule";
@@ -8,6 +8,7 @@ import { openDatabase, migrate as migrateDatabase } from "$lib/server/db/kysely"
 import { unlinkExpiredFiles, synchronizeWithDatabase } from "$lib/server/filesystem";
 import * as loadenv from "$lib/server/loadenv";
 import logger from "$lib/server/logger";
+import { uploadResponse } from "$lib/server/upload";
 
 const mkdirIfNotExist = (dirPath: string) => {
   if (!fs.existsSync(dirPath)) {
@@ -57,6 +58,17 @@ export const init: ServerInit = async () => {
   schedule.scheduleJob("* * * * *", unlinkExpiredFiles);
 
   logger.info("Initialization completed!");
+};
+
+// The /app page shadows the upload route for a file named "app", and pages only
+// accept GET and POST. Uploads to that one path are handled before routing.
+export const handle: Handle = async ({ event, resolve }) => {
+  const { method } = event.request;
+  if (event.url.pathname === "/app" && (method === "PUT" || method === "POST")) {
+    return uploadResponse("app")(event);
+  }
+
+  return resolve(event);
 };
 
 export const handleError: HandleServerError = ({ error }) => {

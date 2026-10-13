@@ -9,6 +9,7 @@ import { pipeline } from "node:stream/promises";
 import path from "path";
 import sharp from "sharp";
 import { MAX_CONVERTIBLE_IMAGE_SIZE, MAX_FILE_SIZE } from "../constants";
+import { formatSize } from "../utils";
 import { readHead, servedContentType } from "./content-type";
 import { findFile, getAllFileIDs } from "./db/file";
 import { UPLOAD_DIR, CACHE_DIR, FILE_EXPIRY } from "./loadenv";
@@ -24,6 +25,10 @@ const convertToMIMEType = (type: FileType) => {
       return "image/png";
   }
 };
+
+export const IMAGE_TOO_LARGE = `The image is too large to convert. The limit is ${formatSize(
+  MAX_CONVERTIBLE_IMAGE_SIZE,
+)}.`;
 
 export const convertedName = (name: string, type: FileType) =>
   name.replace(/\.[^.]*$/, "") + (type === "jpeg" ? ".jpg" : ".png");
@@ -79,8 +84,8 @@ export const uploadFile = async (file: ReadableStream<Uint8Array>, attributes: F
         await fs.rm(filePath, { force: true });
       if (isHttpError(cause)) throw cause;
       if (cause && typeof cause === "object" && "status" in cause && cause.status === 413)
-        error(413);
-      error(400);
+        error(413, `The file is too large. The limit is ${formatSize(MAX_FILE_SIZE)}.`);
+      error(400, "The upload was interrupted.");
     }
 
     let managementToken: string;
@@ -172,7 +177,7 @@ export const cachedImagePath = async (fileID: string, type: FileType) => {
         throw cause;
     }
     const original = path.join(UPLOAD_DIR, fileID);
-    if ((await fs.stat(original)).size > MAX_CONVERTIBLE_IMAGE_SIZE) error(413);
+    if ((await fs.stat(original)).size > MAX_CONVERTIBLE_IMAGE_SIZE) error(413, IMAGE_TOO_LARGE);
     const converted = await convertImage(await fs.readFile(original), type);
     const temporary = `${cachePath}.${crypto.randomUUID()}.tmp`;
     try {
@@ -194,7 +199,8 @@ export const cachedImagePath = async (fileID: string, type: FileType) => {
 const checkDownloadable = (file: DownloadableFile, requiredType?: FileType) => {
   if (file.isDisposable && file.expectedCount > 1)
     error(403, "Single Download folders must be downloaded together.");
-  if (file.isEncrypted && requiredType !== undefined) error(400);
+  if (file.isEncrypted && requiredType !== undefined)
+    error(400, "Encrypted files cannot be converted.");
 };
 
 // Answers HEAD probes without converting the image or consuming a Single Download.
@@ -234,14 +240,20 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
       // Prepare the result before consuming a disposable folder so conversion
       // failures leave its original available for a retry.
       let content: Buffer;
-      if (file.isDisposable) {
-        const original = await fs.readFile(path.join(UPLOAD_DIR, fileID));
-        if (original.byteLength > MAX_CONVERTIBLE_IMAGE_SIZE) error(413);
-        content = await convertImage(original, requiredType);
-        await removeFolder(file.folderId);
-      } else {
-        content = await fs.readFile(await cachedImagePath(fileID, requiredType));
+      try {
+        if (file.isDisposable) {
+          const original = await fs.readFile(path.join(UPLOAD_DIR, fileID));
+          if (original.byteLength > MAX_CONVERTIBLE_IMAGE_SIZE) error(413, IMAGE_TOO_LARGE);
+          content = await convertImage(original, requiredType);
+        } else {
+          content = await fs.readFile(await cachedImagePath(fileID, requiredType));
+        }
+      } catch (cause) {
+        // curl uploads carry no Content-Type, so a non-image is only found out here.
+        if (isHttpError(cause)) throw cause;
+        error(422, "The file could not be converted. Only images can be converted.");
       }
+      if (file.isDisposable) await removeFolder(file.folderId);
       return {
         name: convertedName(file.name, requiredType),
         content,
@@ -277,12 +289,12 @@ export const downloadFile = async (fileID: string, requiredType?: FileType) => {
 
 export const deleteAndUnlinkFile = async (fileID: string, managementToken: string) => {
   const initial = await findFile(fileID);
-  if (!initial) error(404);
+  if (!initial) error(404, "Not found. The file may have expired or been deleted.");
   const { withFolderLock, removeFolder } = await import("./folders");
   await withFolderLock(initial.folderId, async () => {
     const file = await findFile(fileID);
-    if (!file) error(404);
-    if (file.managementToken !== managementToken) error(403);
+    if (!file) error(404, "Not found. The file may have expired or been deleted.");
+    if (file.managementToken !== managementToken) error(403, "Invalid management token.");
     if (file.expectedCount > 1) error(403, "Delete the folder instead.");
     await removeFolder(file.folderId);
   });

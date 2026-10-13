@@ -1,4 +1,7 @@
+import { error, isHttpError, text, type RequestEvent } from "@sveltejs/kit";
+import { STATUS_CODES } from "node:http";
 import { contentSecurityPolicy } from "./content-type";
+import type { FileType } from "./filesystem";
 
 export interface ServedFile {
   name: string;
@@ -43,3 +46,47 @@ export const fileResponse = (
   const body = Buffer.isBuffer(file.content) ? new Uint8Array(file.content) : file.content;
   return new Response(body ?? null, { headers });
 };
+
+// Accepts both ?conv=jpg and the shorter ?jpg, ?jpeg and ?png.
+export const conversionOf = (url: URL): FileType | undefined => {
+  const value =
+    url.searchParams.get("conv") ||
+    ["jpg", "jpeg", "png"].find((type) => url.searchParams.has(type));
+  switch (value) {
+    case undefined:
+    case "":
+      return undefined;
+    case "jpg":
+    case "jpeg":
+      return "jpeg";
+    case "png":
+      return "png";
+    default:
+      error(400, `Unsupported conversion "${value}". Use jpg or png.`);
+  }
+};
+
+export const managementTokenOf = (request: Request) =>
+  request.headers.get("X-Management-Token") || request.headers.get("Token");
+
+// SvelteKit answers non-browser clients with JSON errors. curl users read the body
+// directly, so they get a single line of text instead; browsers keep the error page.
+export const plainTextErrors =
+  <Event extends RequestEvent>(handler: (event: Event) => Promise<Response>) =>
+  async (event: Event) => {
+    try {
+      return await handler(event);
+    } catch (cause) {
+      if (!isHttpError(cause) || event.request.headers.get("Accept")?.includes("text/html")) {
+        throw cause;
+      }
+
+      const message = /^Error: \d+$/.test(cause.body.message)
+        ? `${cause.status} ${STATUS_CODES[cause.status]}`
+        : cause.body.message;
+      return text(`${message}\n`, {
+        status: cause.status,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
+  };

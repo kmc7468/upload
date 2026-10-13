@@ -7,11 +7,11 @@ import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
 import { archiveName } from "$lib/archive-name";
 import { reserveID, releaseID } from "./ids";
 import db from "./db/kysely";
-import { cachedImagePath, convertedName, uploadFile, type FileType } from "./filesystem";
+import { cachedImagePath, convertedName, IMAGE_TOO_LARGE, uploadFile } from "./filesystem";
 import { CACHE_DIR, UPLOAD_DIR, FILE_EXPIRY } from "./loadenv";
 import logger from "./logger";
 import { zip, tar, type ArchiveEntry } from "./archive";
-import { contentDisposition } from "./http";
+import { contentDisposition, conversionOf, managementTokenOf } from "./http";
 
 const locks = new Map<string, Promise<unknown>>();
 
@@ -73,17 +73,17 @@ export async function createFolder(count: number, disposable: boolean, encrypted
 async function managedFolder(id: string, token: string | null) {
   const folder = await findFolder(id);
   if (!folder) {
-    error(404);
+    error(404, "Not found. The folder may have expired or been deleted.");
   }
   if (!token || token !== folder.managementToken) {
-    error(403);
+    error(403, "Invalid management token.");
   }
   return folder;
 }
 
 export async function addFolderFile(id: string, request: Request, address: string) {
   return withFolderLock(id, async () => {
-    const folder = await managedFolder(id, request.headers.get("X-Management-Token"));
+    const folder = await managedFolder(id, managementTokenOf(request));
     const members = await folderFiles(id);
     if (folder.ready || members.length >= folder.expectedCount) {
       error(409);
@@ -274,21 +274,15 @@ export async function downloadFolder(id: string, request: Request, url: URL, add
   return withFolderLock(id, async () => {
     const folder = await findFolder(id);
     if (!folder?.ready) {
-      error(404);
+      error(404, "Not found. The folder may have expired or been deleted.");
     }
     const format =
       (url.searchParams.has("zip") ? "zip" : url.searchParams.get("format")) ||
       (/curl\//i.test(request.headers.get("User-Agent") || "") ? "tar" : "zip");
     if (format !== "zip" && format !== "tar") {
-      error(400);
+      error(400, `Unsupported format "${format}". Use zip or tar.`);
     }
-    const conversion =
-      url.searchParams.get("conv") ||
-      (url.searchParams.has("jpg") ? "jpg" : url.searchParams.has("png") ? "png" : null);
-    if (conversion && !["jpg", "jpeg", "png"].includes(conversion)) {
-      error(400);
-    }
-    const type = (conversion === "jpg" ? "jpeg" : conversion) as FileType | null;
+    const type = conversionOf(url);
     const files = await folderFiles(id);
     const requested = url.searchParams.getAll("file");
     if (
@@ -304,14 +298,19 @@ export async function downloadFolder(id: string, request: Request, url: URL, add
       type &&
       (folder.isEncrypted || selected.some((file) => !file.contentType.startsWith("image/")))
     ) {
-      error(400);
+      error(
+        400,
+        folder.isEncrypted
+          ? "Encrypted files cannot be converted."
+          : "Only images can be converted.",
+      );
     }
     const used = new Set<string>();
     const originals: ArchiveEntry[] = [];
     for (const file of selected) {
       const filePath = path.join(UPLOAD_DIR, file.id);
       const size = (await fs.stat(filePath)).size;
-      if (type && size > MAX_CONVERTIBLE_IMAGE_SIZE) error(413);
+      if (type && size > MAX_CONVERTIBLE_IMAGE_SIZE) error(413, IMAGE_TOO_LARGE);
       const name = type ? convertedName(file.name, type) : file.name;
       originals.push({
         name: safeName(name, used),
