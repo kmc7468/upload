@@ -6,22 +6,14 @@
     icon?: Component<IconComponentProps>;
     title?: string;
     description?: string | Snippet;
-    tone?: "default" | "danger";
     class?: string;
     children?: Snippet;
   }
 
-  let {
-    icon: Icon,
-    title,
-    description,
-    tone = "default",
-    class: className,
-    children,
-  }: Props = $props();
+  let { icon: Icon, title, description, class: className, children }: Props = $props();
 </script>
 
-<section class={["card", tone, className]}>
+<section class={["card", className]}>
   {#if title}
     <header>
       <h3>
@@ -51,33 +43,20 @@
     align-items: center;
     gap: 8px;
     margin: 0;
-    font-size: var(--text-xl);
+    font-size: var(--text-base);
     font-weight: 600;
+    line-height: 1.5;
     color: var(--color-text);
   }
 
   h3 :global(svg) {
-    color: var(--color-brand);
+    color: var(--color-accent-text);
   }
 
   p {
-    margin: 6px 0 0;
+    margin: 4px 0 0;
     font-size: var(--text-md);
     line-height: 1.6;
     color: var(--color-text-secondary);
-  }
-
-  .danger {
-    background: rgba(254, 242, 242, 0.95);
-    border-color: var(--color-danger-border);
-  }
-
-  .danger h3,
-  .danger h3 :global(svg) {
-    color: var(--color-danger-strong);
-  }
-
-  .danger p {
-    color: var(--color-danger-strong);
   }
 </style>

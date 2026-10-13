@@ -5,11 +5,14 @@
 
   type Props = HTMLButtonAttributes &
     Omit<HTMLAnchorAttributes, "type"> & {
-      // One primary action per card; secondary for the rest, subtle inside lists.
-      variant?: "primary" | "secondary" | "subtle" | "danger";
+      // One primary action per card; secondary for the rest, ghost for quiet actions
+      // such as those in a list. Danger confirms a destructive action, and danger-ghost
+      // starts one.
+      variant?: "primary" | "secondary" | "ghost" | "danger" | "danger-ghost";
       size?: "md" | "sm";
       icon?: Component<IconComponentProps>;
-      // Shows only the icon; pass an aria-label to name the button.
+      // Shows only the icon, or the children when there is no icon; the aria-label names
+      // the button and becomes its tooltip.
       iconOnly?: boolean;
       // Stretches to the width of its container.
       block?: boolean;
@@ -26,11 +29,13 @@
     disabled = false,
     type = "button",
     class: className,
+    title,
     children,
     ...rest
   }: Props = $props();
 
   const classes = $derived(["button", variant, size, { block, "icon-only": iconOnly }, className]);
+  const tooltip = $derived(title ?? (iconOnly ? rest["aria-label"] : undefined));
 </script>
 
 {#if href !== undefined}
@@ -38,16 +43,17 @@
   <a
     {...rest}
     href={disabled ? undefined : href}
+    title={tooltip}
     aria-disabled={disabled || undefined}
     class={classes}
   >
     {#if Icon}<Icon weight="bold" />{/if}
-    {#if !iconOnly}{@render children?.()}{/if}
+    {#if !iconOnly || !Icon}{@render children?.()}{/if}
   </a>
 {:else}
-  <button {...rest} {type} {disabled} class={classes}>
+  <button {...rest} {type} {disabled} title={tooltip} class={classes}>
     {#if Icon}<Icon weight="bold" />{/if}
-    {#if !iconOnly}{@render children?.()}{/if}
+    {#if !iconOnly || !Icon}{@render children?.()}{/if}
   </button>
 {/if}
 
@@ -56,20 +62,20 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    min-height: 42px;
-    padding: 10px 18px;
+    gap: 6px;
+    min-height: 36px;
+    padding: 7px 14px;
     border: 1px solid transparent;
     border-radius: var(--radius-md);
+    background: none;
+    color: var(--color-text);
     font-size: var(--text-md);
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.4;
     text-align: center;
     text-decoration: none;
     cursor: pointer;
     transition:
-      transform var(--transition),
-      box-shadow var(--transition),
       background var(--transition),
       border-color var(--transition),
       color var(--transition);
@@ -80,20 +86,19 @@
   }
 
   .sm {
-    gap: 6px;
-    min-height: 34px;
-    padding: 6px 12px;
+    min-height: 32px;
+    padding: 5px 10px;
     border-radius: var(--radius-sm);
     font-size: var(--text-sm);
   }
 
   .icon-only {
-    width: 42px;
+    width: 36px;
     padding: 0;
   }
 
   .sm.icon-only {
-    width: 34px;
+    width: 32px;
   }
 
   .block {
@@ -102,47 +107,52 @@
   }
 
   .primary {
-    background: var(--gradient-brand);
-    color: var(--color-text-inverse);
-    box-shadow: var(--shadow-brand);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: var(--shadow-xs);
   }
 
   .secondary {
-    background: var(--color-surface-solid);
+    background: var(--color-control);
     border-color: var(--color-border);
-    color: var(--color-text);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-xs);
   }
 
-  .subtle {
-    background: var(--color-brand-subtle);
-    border-color: var(--color-brand-border);
-    color: var(--color-brand-strong);
+  .ghost,
+  .danger-ghost {
+    color: var(--color-text-secondary);
   }
 
   .danger {
-    background: var(--color-danger-subtle);
-    border-color: var(--color-danger-border);
-    color: var(--color-danger);
+    background: var(--color-danger);
+    color: #ffffff;
+    box-shadow: var(--shadow-xs);
   }
 
   .primary:not(:disabled, [aria-disabled="true"]):hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-brand-hover);
-    color: var(--color-text-inverse);
+    background: var(--color-accent-hover);
+    color: var(--color-on-accent);
   }
 
   .secondary:not(:disabled, [aria-disabled="true"]):hover {
-    border-color: var(--color-brand);
-    color: var(--color-brand-strong);
+    background: var(--color-surface-hover);
+    border-color: var(--color-border-strong);
+    color: var(--color-text);
   }
 
-  .subtle:not(:disabled, [aria-disabled="true"]):hover {
-    border-color: var(--color-brand);
+  .ghost:not(:disabled, [aria-disabled="true"]):hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
   }
 
   .danger:not(:disabled, [aria-disabled="true"]):hover {
-    border-color: var(--color-danger);
+    background: var(--color-danger-hover);
+    color: #ffffff;
+  }
+
+  .danger-ghost:not(:disabled, [aria-disabled="true"]):hover {
+    background: var(--color-danger-subtle);
+    color: var(--color-danger-text);
   }
 
   .button:disabled,

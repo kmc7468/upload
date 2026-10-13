@@ -17,7 +17,8 @@ Upload options go before the file name, and can be combined as /de/:
 
 Download:
   curl -OJ ${origin}/<id>
-  curl -OJ "${origin}/<id>?jpg"
+      A folder downloads as a tar archive.
+  curl -OJ '${origin}/<id>?jpg'
       Convert an image to JPEG first (or ?png).
   curl -s ${origin}/<id> | openssl enc -d -aes-256-cbc -pbkdf2 > photo.jpg
       Decrypt an end-to-end encrypted file.

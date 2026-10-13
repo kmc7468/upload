@@ -3,20 +3,25 @@
   import CircleX from "phosphor-svelte/lib/XCircleIcon";
   import Info from "phosphor-svelte/lib/InfoIcon";
   import LoaderCircle from "phosphor-svelte/lib/CircleNotchIcon";
-  import type { Snippet } from "svelte";
+  import type { IconComponentProps } from "phosphor-svelte";
+  import type { Component, Snippet } from "svelte";
 
   interface Props {
     tone?: "info" | "progress" | "success" | "error";
+    // Replaces the tone's icon, for a message such as a warning.
+    icon?: Component<IconComponentProps>;
+    // A message that is part of the page rather than an update to it is a note.
+    role?: "status" | "note";
     children: Snippet;
   }
 
-  let { tone = "info", children }: Props = $props();
+  let { tone = "info", icon, role = "status", children }: Props = $props();
 
   const icons = { info: Info, progress: LoaderCircle, success: CircleCheck, error: CircleX };
-  const Icon = $derived(icons[tone]);
+  const Icon = $derived(icon ?? icons[tone]);
 </script>
 
-<p class={["status", tone]} role="status">
+<p class={["status", tone]} {role}>
   <Icon />
   <span>{@render children()}</span>
 </p>
@@ -25,20 +30,24 @@
   .status {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
     margin: 0;
     padding: 10px 14px;
     border: 1px solid transparent;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     font-size: var(--text-md);
-    line-height: 1.5;
+    line-height: 1.6;
   }
 
+  /* Centers the icon on the first line of text. */
   .status :global(svg) {
-    margin-top: 0.15em;
+    margin-top: calc((1.6em - 1.15em) / 2);
   }
 
-  /* Tints sit on an opaque base, so a message reads the same on a card or on the page. */
+  .status :global(strong) {
+    font-weight: 600;
+  }
+
   .info {
     background: var(--color-surface-inset);
     border-color: var(--color-border);
@@ -46,11 +55,9 @@
   }
 
   .progress {
-    background:
-      linear-gradient(var(--color-brand-subtle), var(--color-brand-subtle)),
-      var(--color-surface-solid);
-    border-color: var(--color-brand-border);
-    color: var(--color-brand-strong);
+    background: var(--color-accent-subtle);
+    border-color: var(--color-accent-border);
+    color: var(--color-accent-text);
   }
 
   .progress :global(svg) {
@@ -58,19 +65,15 @@
   }
 
   .success {
-    background:
-      linear-gradient(var(--color-success-subtle), var(--color-success-subtle)),
-      var(--color-surface-solid);
+    background: var(--color-success-subtle);
     border-color: var(--color-success-border);
-    color: var(--color-success);
+    color: var(--color-success-text);
   }
 
   .error {
-    background:
-      linear-gradient(var(--color-danger-subtle), var(--color-danger-subtle)),
-      var(--color-surface-solid);
+    background: var(--color-danger-subtle);
     border-color: var(--color-danger-border);
-    color: var(--color-danger);
+    color: var(--color-danger-text);
   }
 
   @keyframes spin {

@@ -8,8 +8,8 @@
 </script>
 
 <section class="card not-found">
-  <span class="icon"><CircleX /></span>
-  <div>
+  <span class="tile lg danger"><CircleX /></span>
+  <div class="content">
     <h3>{title}</h3>
     <p>{message}</p>
     <div class="actions">
@@ -23,46 +23,31 @@
   .not-found {
     display: flex;
     align-items: flex-start;
-    gap: 20px;
-    padding: 32px;
+    gap: 16px;
   }
 
-  .icon {
-    flex-shrink: 0;
-    font-size: 48px;
-    line-height: 1;
-    color: var(--color-danger);
+  .content {
+    min-width: 0;
   }
 
   h3 {
-    margin: 0 0 6px;
-    font-size: var(--text-2xl);
-    font-weight: 700;
-    color: var(--color-danger-strong);
+    margin: 0 0 2px;
+    font-size: var(--text-lg);
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
   }
 
   p {
-    margin: 0 0 20px;
-    font-size: var(--text-base);
+    margin: 0 0 16px;
+    font-size: var(--text-md);
     color: var(--color-text-secondary);
   }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  @media (max-width: 480px) {
-    .not-found {
-      flex-direction: column;
-      align-items: center;
-      padding: 24px;
-      text-align: center;
-    }
-
-    .actions {
-      justify-content: center;
-    }
+    gap: 8px;
   }
 </style>

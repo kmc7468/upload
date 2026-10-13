@@ -24,7 +24,7 @@
   {#if confirmation.request}
     {@const { title, message, confirmLabel, danger } = confirmation.request}
     <form method="dialog">
-      <h3 id="confirm-title" class:danger>
+      <h3 id="confirm-title">
         {#if danger}<TriangleAlert />{/if}{title}
       </h3>
       <p>{message}</p>
@@ -40,17 +40,17 @@
 
 <style>
   dialog {
-    width: min(440px, calc(100% - 32px));
+    width: min(420px, calc(100% - 32px));
     padding: 24px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    background: var(--color-surface-solid);
+    background: var(--color-surface);
     color: var(--color-text);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-lg);
   }
 
   dialog::backdrop {
-    background: rgba(30, 27, 75, 0.45);
+    background: var(--color-backdrop);
     backdrop-filter: blur(2px);
   }
 
@@ -58,13 +58,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 0 8px;
-    font-size: var(--text-xl);
+    margin: 0 0 6px;
+    font-size: var(--text-lg);
     font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
   }
 
-  h3.danger {
-    color: var(--color-danger-strong);
+  h3 :global(svg) {
+    color: var(--color-danger);
   }
 
   p {
@@ -78,7 +80,7 @@
   .actions {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 8px;
   }
 
   @media (max-width: 480px) {

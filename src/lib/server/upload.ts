@@ -1,4 +1,5 @@
 import { error, text, type RequestEvent } from "@sveltejs/kit";
+import { shellQuote } from "$lib/shell";
 import { plainTextErrors } from "./http";
 import { uploadFile } from "./services/files";
 
@@ -28,14 +29,16 @@ export const uploadResponse = (fileName: string, fileAttr?: string) =>
       clientAddress: getClientAddress(),
     });
     const downloadURL = `${url.origin}/${fileID}/${encodeURIComponent(fileName)}`;
+    // The commands use the short URL; the server names the file, so it need not repeat.
+    const fileURL = shellQuote(`${url.origin}/${fileID}`);
 
     return text(
       isEncrypted
-        ? `curl -s ${url.origin}/${fileID} | openssl enc -d -aes-256-cbc -pbkdf2 > "${fileName}"\n`
-        : `curl -OJ ${downloadURL}\n`,
+        ? `curl -s ${fileURL} | openssl enc -d -aes-256-cbc -pbkdf2 > ${shellQuote(fileName)}\n`
+        : `curl -OJ ${fileURL}\n`,
       {
         headers: {
-          "Content-Type": "text/plain",
+          "Content-Type": "text/plain; charset=utf-8",
           Location: downloadURL,
           "X-Management-Token": managementToken,
         },

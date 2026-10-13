@@ -27,6 +27,8 @@
     isEncrypted?: boolean;
     // Facts shown after the file count, such as the total size.
     details?: { text: string; title?: string }[];
+    // "upload" shows the name with a Rename Folder button; "folder" is the heading of the
+    // folder page; "my" shows only the form, opened by calling startEditing.
     variant?: "upload" | "folder" | "my";
     onsave?: (name: string) => void;
   } = $props();
@@ -36,7 +38,8 @@
   let errorMessage = $state("");
   const inputId = $props.id();
   let nameInput = $state<HTMLInputElement>();
-  const startEditing = async () => {
+
+  export const startEditing = async () => {
     if (saving || !managementToken) return;
     draft = name;
     editing = true;
@@ -45,6 +48,7 @@
     nameInput?.focus();
     nameInput?.select();
   };
+
   const cancel = () => {
     if (!saving) {
       editing = false;
@@ -83,11 +87,16 @@
   };
 </script>
 
+{#snippet editActions()}
+  <Button type="submit" variant="primary" disabled={saving || !draft.trim()}>
+    {saving ? "Saving..." : "Save"}
+  </Button>
+  <Button disabled={saving} onclick={cancel}>Cancel</Button>
+{/snippet}
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="folder-name-editor"
-  class:folder={variant === "folder"}
-  class:my={variant === "my"}
+  class={["folder-name-editor", variant]}
   onclick={(event) => event.stopPropagation()}
   onkeydown={(event) => {
     event.stopPropagation();
@@ -96,14 +105,14 @@
 >
   {#if variant === "folder"}
     <form
-      class="title-form"
-      class:editing
+      class="file-info-card"
       onsubmit={(event) => {
         event.preventDefault();
         if (editing) save();
       }}
     >
-      <div class="title-details">
+      <span class="tile lg"><Folder /></span>
+      <div class="file-details">
         {#if editing}
           <input
             class="title-input"
@@ -117,9 +126,9 @@
             disabled={saving}
           />
         {:else}
-          <h3 class="folder-title" title={name}>{name}</h3>
+          <h3 class="file-name">{name}</h3>
         {/if}
-        <div class="meta-row folder-meta">
+        <div class="meta-row">
           <span class="meta-list">
             <span>{plural(fileCount, "file")}</span>
             {#each details as detail (detail.text)}
@@ -130,12 +139,9 @@
         </div>
       </div>
       {#if managementToken}
-        <div class="title-actions">
+        <div class="actions">
           {#if editing}
-            <Button type="submit" variant="primary" disabled={saving || !draft.trim()}>
-              {saving ? "Saving..." : "Save"}
-            </Button>
-            <Button disabled={saving} onclick={cancel}>Cancel</Button>
+            {@render editActions()}
           {:else}
             <Button icon={Pencil} onclick={startEditing}>Rename Folder</Button>
           {/if}
@@ -160,13 +166,10 @@
           maxlength={200}
           disabled={saving}
         />
-        <Button type="submit" variant="primary" disabled={saving || !draft.trim()}>
-          {saving ? "Saving..." : "Save"}
-        </Button>
-        <Button disabled={saving} onclick={cancel}>Cancel</Button>
+        {@render editActions()}
       </div>
     </form>
-  {:else}
+  {:else if variant === "upload"}
     {#if expanded}<div class="current-name" title={name}><Folder /><span>{name}</span></div>{/if}
     <Button icon={Pencil} onclick={startEditing}>Rename Folder</Button>
   {/if}
@@ -181,74 +184,35 @@
     width: 100%;
   }
 
-  .title-form {
-    display: flex;
-    align-items: center;
-    gap: 20px;
+  /* Nothing is shown in a list until the form is opened. */
+  .my:empty {
+    display: none;
   }
 
-  .title-form.editing {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
-    align-items: start;
-  }
-
-  .editing .title-details {
-    display: contents;
-  }
-
-  .title-form.editing input.title-input {
-    grid-column: 1;
-    grid-row: 1;
-    margin: 0;
-  }
-
-  .editing .title-actions {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .editing .folder-meta {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .title-details {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .folder-title {
-    margin: 0 0 8px;
-    font-size: var(--text-xl);
-    font-weight: 600;
-    color: var(--color-text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .title-actions {
+  .actions {
     display: flex;
     gap: 8px;
     flex-shrink: 0;
   }
 
-  form {
-    text-align: left;
+  /* The name and the field that replaces it take the same space. */
+  .title-input {
+    width: 100%;
+    margin-bottom: 2px;
+    font-size: var(--text-base);
+    font-weight: 600;
   }
 
   .current-name {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-bottom: 8px;
     font-weight: 600;
   }
 
   .current-name :global(svg) {
-    color: var(--color-brand);
+    color: var(--color-accent-text);
   }
 
   .current-name span {
@@ -260,69 +224,37 @@
   .edit-controls {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: stretch;
     gap: 8px;
   }
 
-  input[type="text"] {
+  .edit-controls input {
     min-width: 0;
     width: 100%;
-    padding: 8px 12px;
-    line-height: inherit;
-  }
-
-  input[type="text"].title-input {
-    font-size: var(--text-lg);
-    font-weight: 600;
   }
 
   .error {
-    margin-top: 8px;
-    text-align: left;
+    margin-top: 12px;
     overflow-wrap: anywhere;
   }
 
   @media (max-width: 768px) {
-    .folder-meta {
-      justify-content: center;
-    }
-
-    .editing .folder-meta {
-      justify-content: flex-start;
-    }
-
-    .title-form {
-      flex-direction: column;
-      gap: 16px;
-      text-align: center;
-    }
-
-    .title-form.editing {
-      text-align: left;
-    }
-
-    .title-details {
+    .actions {
       width: 100%;
     }
 
-    .title-actions {
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .folder-title {
-      font-size: var(--text-lg);
+    .actions > :global(*) {
+      flex: 1;
     }
 
     .edit-controls {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
 
-    input[type="text"] {
+    .edit-controls input {
       grid-column: 1 / -1;
     }
 
-    .my > :global(.button) {
+    .upload > :global(.button) {
       width: 100%;
     }
   }

@@ -1,18 +1,20 @@
 <script lang="ts">
-  import type { IconComponentProps } from "phosphor-svelte";
-  import type { Component, Snippet } from "svelte";
+  import type { Snippet } from "svelte";
 
   interface Props {
-    icon: Component<IconComponentProps>;
     title: string;
+    description?: string;
     actions?: Snippet;
   }
 
-  let { icon: Icon, title, actions }: Props = $props();
+  let { title, description, actions }: Props = $props();
 </script>
 
 <header class="page-header">
-  <h2><Icon />{title}</h2>
+  <div class="heading">
+    <h2>{title}</h2>
+    {#if description}<p>{description}</p>{/if}
+  </div>
   {#if actions}
     <div class="actions">{@render actions()}</div>
   {/if}
@@ -25,53 +27,38 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
+  }
+
+  .heading {
+    min-width: 0;
   }
 
   h2 {
-    display: flex;
-    align-items: center;
-    gap: 12px;
     margin: 0;
     font-size: var(--text-3xl);
     font-weight: 700;
-    line-height: 1.3;
-    color: var(--color-text-inverse);
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    color: var(--color-text);
+  }
+
+  p {
+    margin: 4px 0 0;
+    font-size: var(--text-base);
+    color: var(--color-text-secondary);
   }
 
   .actions {
     display: flex;
+    flex-shrink: 0;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 8px;
   }
 
   .actions :global(.button) {
     white-space: nowrap;
-  }
-
-  /* On the page background, buttons invert: solid white leads, translucent white follows. */
-  .actions :global(.button.primary) {
-    background: var(--color-surface-solid);
-    color: var(--color-brand-strong);
-    box-shadow: var(--shadow-md);
-  }
-
-  .actions :global(.button.primary:not(:disabled, [aria-disabled="true"]):hover) {
-    color: var(--color-brand-accent);
-  }
-
-  .actions :global(.button.secondary) {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.4);
-    color: var(--color-text-inverse);
-    box-shadow: none;
-  }
-
-  .actions :global(.button.secondary:not(:disabled, [aria-disabled="true"]):hover) {
-    background: rgba(255, 255, 255, 0.25);
-    border-color: rgba(255, 255, 255, 0.6);
-    color: var(--color-text-inverse);
   }
 
   @media (max-width: 768px) {
@@ -81,21 +68,12 @@
     }
 
     h2 {
-      flex-direction: column;
-      gap: 8px;
-      font-size: 28px;
-      text-align: center;
+      font-size: var(--text-2xl);
     }
 
     /* Buttons share a row while they fit and take a full row each when they do not. */
     .actions > :global(*) {
       flex: 1 1 auto;
-    }
-  }
-
-  @media (max-width: 480px) {
-    h2 {
-      font-size: var(--text-2xl);
     }
   }
 </style>

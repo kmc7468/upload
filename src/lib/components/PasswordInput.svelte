@@ -25,9 +25,9 @@
   <button
     type="button"
     class="toggle"
-    aria-label={visible ? "Hide passphrase" : "Show passphrase"}
+    aria-label={visible ? "Hide Passphrase" : "Show Passphrase"}
     aria-pressed={visible}
-    title={visible ? "Hide passphrase" : "Show passphrase"}
+    title={visible ? "Hide Passphrase" : "Show Passphrase"}
     {disabled}
     onclick={() => (visible = !visible)}
   >
@@ -42,29 +42,32 @@
 
   input {
     width: 100%;
-    padding-right: 48px;
+    padding-right: 44px;
   }
 
   .toggle {
     position: absolute;
     top: 50%;
-    right: 6px;
+    right: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     border: none;
     border-radius: var(--radius-sm);
     background: none;
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     transform: translateY(-50%);
-    transition: color var(--transition);
+    transition:
+      background var(--transition),
+      color var(--transition);
   }
 
   .toggle:not(:disabled):hover {
-    color: var(--color-brand);
+    background: var(--color-surface-hover);
+    color: var(--color-text);
   }
 
   .toggle:disabled {

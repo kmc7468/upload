@@ -12,12 +12,12 @@
 
   import Download from "phosphor-svelte/lib/DownloadSimpleIcon";
   import FileText from "phosphor-svelte/lib/FileTextIcon";
-  import Files from "phosphor-svelte/lib/FilesIcon";
   import Folder from "phosphor-svelte/lib/FolderIcon";
   import FolderOpen from "phosphor-svelte/lib/FolderOpenIcon";
   import KeyRound from "phosphor-svelte/lib/KeyIcon";
   import LoaderCircle from "phosphor-svelte/lib/CircleNotchIcon";
   import Lock from "phosphor-svelte/lib/LockIcon";
+  import Pencil from "phosphor-svelte/lib/PencilSimpleIcon";
   import Trash from "phosphor-svelte/lib/TrashIcon";
   import TriangleAlert from "phosphor-svelte/lib/WarningIcon";
   import Upload from "phosphor-svelte/lib/UploadSimpleIcon";
@@ -216,6 +216,9 @@
     return path;
   };
 
+  // The forms that rename folders, opened from each folder's Rename Folder button.
+  let editors: Record<string, ReturnType<typeof FolderNameEditor>> = $state({});
+
   const expiredCount = $derived(uploadedFiles.filter((file) => file.isExpired).length);
 
   // 활성 파일을 먼저 표시하도록 정렬
@@ -237,7 +240,10 @@
 </svelte:head>
 
 <main class="page">
-  <PageHeader icon={Files} title="My Files">
+  <PageHeader
+    title="My Files"
+    description="Uploads from this browser. This list stays on this device."
+  >
     {#snippet actions()}
       <Button icon={Trash} onclick={cleanupExpiredFiles} disabled={isLoading || expiredCount === 0}>
         {expiredCount === 0
@@ -254,7 +260,7 @@
 
   {#if isInitializing}
     <section class="card state" role="status">
-      <div class="state-icon spinning"><LoaderCircle /></div>
+      <span class="tile lg spinning"><LoaderCircle /></span>
       <h3>Checking Files...</h3>
       <p>Verifying your uploaded files are still available.</p>
       {#if validationProgress.total > 0}
@@ -273,20 +279,19 @@
     </section>
   {:else if uploadedFiles.length === 0}
     <section class="card state">
-      <div class="state-icon"><FolderOpen /></div>
+      <span class="tile lg"><FolderOpen /></span>
       <h3>No Files Uploaded Yet</h3>
       <p>Files you upload will appear here for easy management.</p>
-      <Button variant="primary" href="/app" icon={Upload}>Upload Files</Button>
     </section>
   {:else}
-    <div class="files-grid">
+    <ul class="card file-list">
       {#each sortedFiles as file (file.id)}
+        <!-- The row opens the file; its buttons are also reachable by keyboard. -->
         <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="card file-card"
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <li
+          class="file-row"
           class:expired={file.isExpired}
-          class:clickable={!file.isExpired}
           onclick={() => {
             if (!file.isExpired) {
               window.location.href =
@@ -294,25 +299,12 @@
             }
           }}
         >
-          <div class="file-header">
-            <h3 class="file-name">
-              <span class="file-kind">
-                {#if file.kind === "folder"}<Folder />{:else}<FileText />{/if}
-              </span>
-              <span class="file-title" title={file.name}>{file.name}</span>
-            </h3>
-            <div class="meta-row">
-              <p class="meta-list">
-                {#if file.kind === "folder" && file.fileCount}
-                  <span>{plural(file.fileCount, "file")}</span>
-                {/if}
-                <span>Uploaded {formatDateTime(file.uploadedAt)}</span>
-                {#if !file.isExpired && expireAt[file.id]}
-                  <span title={formatDateTime(expireAt[file.id])}>
-                    {formatExpiry(expireAt[file.id], clock.now)}
-                  </span>
-                {/if}
-              </p>
+          <span class={["tile", { muted: file.isExpired }]}>
+            {#if file.kind === "folder"}<Folder />{:else}<FileText />{/if}
+          </span>
+          <div class="file-main">
+            <div class="file-heading">
+              <h3 class="file-title" title={file.name}>{file.name}</h3>
               {#if file.isEncrypted}
                 <span class="badge"><Lock />Encrypted</span>
               {/if}
@@ -320,18 +312,70 @@
                 <span class="badge danger"><TriangleAlert />Expired</span>
               {/if}
             </div>
-            {#if file.isExpired}
-              <div class="file-expired-notice">This file is no longer available for download.</div>
-            {/if}
+            <p class="meta-list">
+              {#if file.kind === "folder" && file.fileCount}
+                <span>{plural(file.fileCount, "file")}</span>
+              {/if}
+              <span>Uploaded {formatDateTime(file.uploadedAt)}</span>
+              {#if file.isExpired}
+                <span>No longer available for download</span>
+              {:else if expireAt[file.id]}
+                <span title={formatDateTime(expireAt[file.id])}>
+                  {formatExpiry(expireAt[file.id], clock.now)}
+                </span>
+              {/if}
+            </p>
           </div>
 
-          <!-- The whole card opens the file, so its buttons keep their clicks. -->
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="file-actions" onclick={(event) => event.stopPropagation()}>
-            {#if file.kind === "folder" && !file.isExpired}
-              <div class="folder-rename">
+          {#if !file.isExpired}
+            <!-- The whole row opens the file, so its buttons keep their clicks. -->
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="file-actions" onclick={(event) => event.stopPropagation()}>
+              <Button
+                size="sm"
+                icon={Download}
+                href={getDownloadUrl(file)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Download
+              </Button>
+              <CopyButton text={getFullDownloadUrl(file)} variant="ghost" size="sm" iconOnly />
+              {#if file.kind === "folder"}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  icon={Pencil}
+                  aria-label="Rename Folder"
+                  onclick={() => editors[file.id]?.startEditing()}
+                />
+              {/if}
+              {#if file.isEncrypted && file.passphrase}
+                <CopyButton
+                  text={file.passphrase}
+                  label="Copy Passphrase"
+                  icon={KeyRound}
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                />
+              {/if}
+              <Button
+                variant="danger-ghost"
+                size="sm"
+                iconOnly
+                icon={Trash}
+                aria-label="Delete"
+                onclick={() => deleteFile(file)}
+              />
+            </div>
+
+            {#if file.kind === "folder"}
+              <div class="file-editor">
                 <FolderNameEditor
+                  bind:this={editors[file.id]}
                   variant="my"
                   id={file.id}
                   name={file.name}
@@ -344,57 +388,24 @@
                 />
               </div>
             {/if}
-
-            <CopyButton text={getFullDownloadUrl(file)} disabled={file.isExpired} />
-
-            <Button
-              variant="primary"
-              icon={Download}
-              href={getDownloadUrl(file)}
-              target="_blank"
-              rel="noopener noreferrer"
-              disabled={file.isExpired}
-            >
-              Download
-            </Button>
-
-            {#if file.isEncrypted && file.passphrase}
-              <CopyButton
-                text={file.passphrase}
-                label="Copy Passphrase"
-                icon={KeyRound}
-                disabled={file.isExpired}
-              />
-            {/if}
-
-            <Button
-              variant="danger"
-              icon={Trash}
-              disabled={file.isExpired}
-              onclick={() => deleteFile(file)}
-            >
-              Delete
-            </Button>
-          </div>
-        </div>
+          {/if}
+        </li>
       {/each}
-    </div>
+    </ul>
   {/if}
 </main>
 
 <style>
   .state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
     text-align: center;
-    padding: 4rem 2rem;
-    color: var(--color-text-secondary);
   }
 
-  .state-icon {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 1.5rem;
-    font-size: 64px;
-    color: var(--color-brand);
+  .state .tile {
+    margin-bottom: 16px;
   }
 
   .spinning :global(svg) {
@@ -414,143 +425,143 @@
   }
 
   .state h3 {
-    margin: 0 0 1rem 0;
-    color: var(--color-text);
-    font-size: var(--text-2xl);
+    margin: 0;
+    font-size: var(--text-base);
     font-weight: 600;
+    line-height: 1.5;
+    color: var(--color-text);
   }
 
   .state p {
-    margin: 0 0 2rem 0;
-    font-size: var(--text-lg);
-    line-height: 1.6;
+    margin: 4px 0 0;
+    font-size: var(--text-md);
+    color: var(--color-text-secondary);
   }
 
   .progress-container {
-    max-width: 300px;
-    margin: 0 auto;
+    width: 100%;
+    max-width: 240px;
+    margin-top: 20px;
   }
 
   .progress-bar {
-    width: 100%;
-    height: 8px;
-    background: var(--color-brand-border);
+    height: 6px;
+    margin-bottom: 8px;
+    background: var(--color-accent-border);
     border-radius: var(--radius-pill);
     overflow: hidden;
-    margin-bottom: 0.5rem;
   }
 
   .progress-fill {
     height: 100%;
-    background: var(--gradient-brand);
+    background: var(--color-accent);
     border-radius: var(--radius-pill);
     transition: width 0.3s ease;
   }
 
   .progress-text {
-    font-size: var(--text-md);
-    color: var(--color-text-secondary);
-    font-weight: 500;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
   }
 
-  .files-grid {
+  /* One card holds every file, divided by hairlines. */
+  .file-list {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    list-style: none;
+  }
+
+  .file-row {
+    --row-indent: calc(40px + 14px);
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .file-card {
-    transition: all var(--transition);
-  }
-
-  .file-card.clickable {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 14px;
+    padding: 16px 20px;
     cursor: pointer;
+    transition: background var(--transition);
   }
 
-  .file-card.clickable:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
-    border-color: var(--color-brand);
+  .file-row + .file-row {
+    border-top: 1px solid var(--color-border);
   }
 
-  /* The card stays opaque; only its content fades, so the background does not show through. */
-  .file-card.expired {
-    border-color: var(--color-danger-border);
+  .file-row:not(.expired):hover {
+    background: var(--color-surface-hover);
+  }
+
+  .file-row.expired {
     cursor: default;
   }
 
-  .file-card.expired .file-header,
-  .file-card.expired .file-actions {
+  .file-row.expired .file-main {
     opacity: 0.6;
   }
 
-  .file-header {
-    margin-bottom: 20px;
+  .file-main {
+    flex: 1;
+    min-width: 0;
   }
 
-  .file-name {
-    margin: 0 0 6px 0;
-    font-size: var(--text-lg);
-    font-weight: 600;
-    color: var(--color-text);
-    line-height: 1.4;
+  .file-heading {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
   }
 
-  .file-kind {
-    display: flex;
-    color: var(--color-brand);
-  }
-
   .file-title {
     min-width: 0;
+    margin: 0;
     overflow: hidden;
+    font-size: var(--text-base);
+    font-weight: 600;
+    line-height: 1.5;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .file-expired-notice {
-    margin-top: 12px;
-    padding: 0.5rem 0.75rem;
-    font-size: var(--text-sm);
-    color: var(--color-danger);
-    background: var(--color-danger-subtle);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-danger-border);
-  }
-
-  .folder-rename {
-    min-width: 0;
-  }
-
-  .folder-rename:has(:global(form)) {
-    flex-basis: 100%;
+    color: var(--color-text);
   }
 
   .file-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+    align-items: center;
+    gap: 2px;
+    cursor: default;
+  }
+
+  /* The download button stands a little apart from the icon buttons after it. */
+  .file-actions > :global(.button:first-child) {
+    margin-right: 6px;
+  }
+
+  /* The rename form opens on its own line, under the name. */
+  .file-editor {
+    flex-basis: 100%;
+    padding-left: var(--row-indent);
+    cursor: default;
+  }
+
+  .file-editor:not(:has(form)) {
+    display: none;
   }
 
   @media (max-width: 768px) {
-    /* Buttons share rows while they fit, as in the page header, keeping the list short. */
-    .file-actions > :global(.button) {
-      flex: 1 1 auto;
-      white-space: nowrap;
+    .file-row {
+      align-items: flex-start;
+      padding: 16px;
     }
 
-    .folder-rename {
-      flex-basis: 100%;
+    .file-actions {
+      width: 100%;
+      padding-left: var(--row-indent);
     }
   }
 
   @media (max-width: 480px) {
-    .file-card {
-      padding: 16px;
+    .file-editor {
+      padding-left: 0;
     }
   }
 </style>

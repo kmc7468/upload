@@ -13,8 +13,44 @@
       name="description"
       content="Share files temporarily from your browser or the command line."
     />
-    <meta name="theme-color" content="#667eea" />
+    <meta name="theme-color" content="#fafafa" />
     <link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+    <script>
+      // Runs before the first paint, so the page never flashes in the other theme. The
+      // system theme is followed unless a different one was chosen; the theme toggle
+      // stores that choice and fires "themechange", with the theme as its detail.
+      (() => {
+        const root = document.documentElement;
+        const system = matchMedia("(prefers-color-scheme: dark)");
+        const apply = (requested) => {
+          let chosen = requested;
+          try {
+            chosen ??= localStorage.getItem("theme");
+          } catch {
+            // Storage may be unavailable; the system theme still applies.
+          }
+          const theme =
+            chosen === "light" || chosen === "dark" ? chosen : system.matches ? "dark" : "light";
+          if (root.dataset.theme === theme) return;
+
+          // Colors change at once when the theme does, rather than some fading on their own.
+          const switching = root.dataset.theme !== undefined;
+          if (switching) root.classList.add("theme-switching");
+          root.dataset.theme = theme;
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute("content", theme === "dark" ? "#09090b" : "#fafafa");
+          if (switching) {
+            getComputedStyle(document.body).color;
+            setTimeout(() => root.classList.remove("theme-switching"), 1);
+          }
+        };
+        apply();
+        system.addEventListener("change", () => apply());
+        window.addEventListener("themechange", (event) => apply(event.detail));
+        window.addEventListener("storage", (event) => event.key === "theme" && apply());
+      })();
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

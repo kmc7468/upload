@@ -1,56 +1,116 @@
-/* Design tokens: every color, size and effect in the app comes from this list. */
+/* Design tokens: every color, size and effect in the app comes from this list. The theme
+   is resolved before the first paint by a script in app.html, which sets data-theme. */
 :root {
-  --color-brand: #667eea;
-  --color-brand-strong: #5a67d8;
-  --color-brand-accent: #764ba2;
-  --color-brand-subtle: rgba(102, 126, 234, 0.1);
-  --color-brand-faint: rgba(102, 126, 234, 0.05);
-  --color-brand-border: rgba(102, 126, 234, 0.2);
-  --gradient-brand: linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-accent) 100%);
+  color-scheme: light;
 
-  --color-text: #333;
-  --color-text-secondary: #666;
-  --color-text-muted: #999;
-  --color-text-inverse: white;
+  /* The brand gradient is kept for the logo; everything else uses the accent color. */
+  --gradient-brand: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
-  --color-success: #15803d;
-  --color-success-subtle: rgba(34, 197, 94, 0.1);
-  --color-success-border: rgba(34, 197, 94, 0.25);
+  --color-bg: #fafafa;
+  --color-bg-glow: rgba(102, 126, 234, 0.14);
+  --color-surface: #ffffff;
+  --color-surface-inset: #f4f4f5;
+  --color-surface-hover: #f4f4f5;
+  /* Fields and secondary buttons, raised slightly off the surface in the dark theme */
+  --color-control: #ffffff;
+  --color-border: #e4e4e7;
+  --color-border-strong: #d4d4d8;
+
+  --color-text: #18181b;
+  --color-text-secondary: #52525b;
+  --color-text-muted: #71717a;
+
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-accent-text: #4338ca;
+  --color-accent-subtle: #eef2ff;
+  --color-accent-border: #c7d2fe;
+  --color-on-accent: #ffffff;
+
+  --color-success: #16a34a;
+  --color-success-text: #15803d;
+  --color-success-subtle: #f0fdf4;
+  --color-success-border: #bbf7d0;
   --color-danger: #dc2626;
-  --color-danger-strong: #991b1b;
-  --color-danger-subtle: rgba(239, 68, 68, 0.08);
-  --color-danger-border: rgba(239, 68, 68, 0.25);
-  --color-warning: #b45309;
-  --color-warning-subtle: rgba(245, 158, 11, 0.1);
-  --color-warning-border: rgba(245, 158, 11, 0.3);
+  --color-danger-hover: #b91c1c;
+  --color-danger-text: #b91c1c;
+  --color-danger-subtle: #fef2f2;
+  --color-danger-border: #fecaca;
 
-  --color-surface: rgba(255, 255, 255, 0.95);
-  --color-surface-solid: white;
-  --color-surface-inset: #f8fafc;
-  --color-border: #e2e8f0;
+  /* The command line stays dark in both themes. */
+  --color-terminal: #18181b;
+  --color-terminal-border: #27272a;
+  --color-terminal-hover: #27272a;
+  --color-terminal-text: #e4e4e7;
+  --color-terminal-muted: #a1a1aa;
+  --color-terminal-prompt: #818cf8;
+  --color-terminal-placeholder: #fbbf24;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --color-backdrop: rgba(9, 9, 11, 0.5);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --shadow-brand: 0 4px 16px rgba(102, 126, 234, 0.3);
-  --shadow-brand-hover: 0 6px 24px rgba(102, 126, 234, 0.4);
-  --focus-ring: 0 0 0 3px rgba(102, 126, 234, 0.35);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.16);
+  --focus-ring: 0 0 0 3px rgba(79, 70, 229, 0.25);
 
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;
-  --text-base: 16px;
+  --text-base: 15px;
   --text-lg: 18px;
   --text-xl: 20px;
   --text-2xl: 24px;
-  --text-3xl: 32px;
+  --text-3xl: 28px;
 
   --font-mono: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
-  --transition: 0.2s ease;
+  --transition: 0.15s ease;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg: #09090b;
+  --color-bg-glow: rgba(102, 126, 234, 0.16);
+  --color-surface: #111113;
+  --color-surface-inset: #18181b;
+  --color-surface-hover: #232327;
+  --color-control: #1c1c1f;
+  --color-border: #27272a;
+  --color-border-strong: #3f3f46;
+
+  --color-text: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #8b8b94;
+
+  --color-accent: #5b54e8;
+  --color-accent-hover: #6d67ee;
+  --color-accent-text: #a5b4fc;
+  --color-accent-subtle: rgba(99, 102, 241, 0.14);
+  --color-accent-border: rgba(129, 140, 248, 0.3);
+
+  --color-success: #4ade80;
+  --color-success-text: #86efac;
+  --color-success-subtle: rgba(34, 197, 94, 0.1);
+  --color-success-border: rgba(74, 222, 128, 0.25);
+  --color-danger: #dc2626;
+  --color-danger-hover: #ef4444;
+  --color-danger-text: #fca5a5;
+  --color-danger-subtle: rgba(239, 68, 68, 0.1);
+  --color-danger-border: rgba(248, 113, 113, 0.28);
+
+  --color-terminal: #000000;
+
+  --color-backdrop: rgba(0, 0, 0, 0.6);
+
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 3px rgba(129, 140, 248, 0.35);
 }
 
 * {
@@ -73,10 +133,16 @@ body {
     "Noto Sans KR",
     "Malgun Gothic",
     sans-serif;
-  background: var(--gradient-brand);
-  min-height: 100vh;
-  color: var(--color-text);
+  font-size: var(--text-base);
   line-height: 1.6;
+  color: var(--color-text);
+  /* A faint glow of the brand color at the top of every page */
+  background:
+    radial-gradient(ellipse 80% 420px at 50% -120px, var(--color-bg-glow), transparent) no-repeat,
+    var(--color-bg);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Icons follow the size and color of the text around them. Icons that decorate text are
@@ -87,23 +153,64 @@ svg.icon {
   flex-shrink: 0;
 }
 
+/* Cards are white surfaces outlined by a hairline. A section inside a card is divided
+   from the one above by a rule running from edge to edge. */
 .card {
+  --card-padding: 24px;
+  padding: var(--card-padding);
   background: var(--color-surface);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 24px;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
-code {
-  background-color: var(--color-brand-subtle);
-  border: 1px solid var(--color-brand-border);
-  border-radius: 6px;
-  padding: 4px;
-  font-family: var(--font-mono);
-  color: var(--color-brand-strong);
-  font-size: 0.9em;
+.card-section {
+  margin: var(--card-padding) calc(-1 * var(--card-padding)) 0;
+  padding: var(--card-padding) var(--card-padding) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+/* A smaller heading for a part of a card, such as "Image Conversion" */
+.section-label {
+  margin: 0 0 10px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+/* An icon on a tinted square, beside a file name or above an empty state */
+.tile {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-text);
+  font-size: 20px;
+}
+
+.tile svg.icon {
+  width: 1em;
+  height: 1em;
+}
+
+.tile.lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  font-size: 24px;
+}
+
+.tile.muted {
+  background: var(--color-surface-inset);
+  color: var(--color-text-muted);
+}
+
+.tile.danger {
+  background: var(--color-danger-subtle);
+  color: var(--color-danger-text);
 }
 
 /* Form controls use the same typeface as their surrounding links and labels. */
@@ -128,19 +235,23 @@ button:disabled {
 
 /* One focus indicator for every control reached by keyboard. */
 :focus-visible {
-  outline: 2px solid var(--color-brand);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
 input[type="password"],
 input[type="text"] {
-  border: 2px solid var(--color-brand-border);
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  padding: 12px 16px;
-  font-size: var(--text-md);
+  background: var(--color-control);
   color: var(--color-text);
-  background: var(--color-surface-solid);
-  transition: all var(--transition);
+  font-size: var(--text-md);
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
 }
 
 input::placeholder {
@@ -150,37 +261,56 @@ input::placeholder {
 input[type="password"]:focus-visible,
 input[type="text"]:focus-visible {
   outline: none;
-  border-color: var(--color-brand);
+  border-color: var(--color-accent);
   box-shadow: var(--focus-ring);
 }
 
+input[type="password"]:disabled,
+input[type="text"]:disabled {
+  background: var(--color-surface-inset);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+
 input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   margin: 0;
-  accent-color: var(--color-brand);
+  accent-color: var(--color-accent);
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+input[type="checkbox"]:disabled {
+  cursor: not-allowed;
 }
 
 a {
-  color: var(--color-brand);
+  color: var(--color-accent-text);
   text-decoration: none;
   font-weight: 500;
-  transition: color var(--transition);
 }
 
 a:hover {
-  color: var(--color-brand-accent);
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* A label toggles its checkbox, which shows the change itself, so the tap highlight
+   flashing over the whole label is only noise. */
+label {
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* A label above a field or a group of controls */
 .field-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: var(--text-md);
-  font-weight: 600;
-  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 
 /* A checkbox with its label to the right */
@@ -194,24 +324,25 @@ a:hover {
 }
 
 /* A line of facts such as "12 KiB · text/plain · Expires in 2 hours". Every item starts
-   with a separator, and the list's first 20px are clipped away, so a line never begins
+   with a separator, and the list's first 16px are clipped away, so a line never begins
    with a dot however the items wrap. */
 .meta-list {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin: 0 0 0 -20px;
-  clip-path: inset(0 0 0 20px);
-  font-size: var(--text-md);
-  color: var(--color-text-secondary);
+  margin: 0 0 0 -16px;
+  clip-path: inset(0 0 0 16px);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .meta-list > *::before {
   content: "·";
   display: inline-block;
-  width: 20px;
+  width: 16px;
   text-align: center;
-  color: var(--color-text-muted);
 }
 
 /* A meta list followed by badges such as "Encrypted" */
@@ -219,7 +350,7 @@ a:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
+  gap: 4px 10px;
 }
 
 /* Small rounded labels such as "Encrypted" or "Expired" */
@@ -227,131 +358,158 @@ a:hover {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 10px;
-  border: 1px solid var(--color-brand-border);
+  height: 20px;
+  padding: 0 8px;
   border-radius: var(--radius-pill);
-  background: var(--color-brand-subtle);
-  color: var(--color-brand-strong);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-text);
   font-size: var(--text-xs);
-  font-weight: 600;
-  line-height: 1.6;
+  font-weight: 500;
+  line-height: 1;
   white-space: nowrap;
 }
 
+.badge svg.icon {
+  width: 1em;
+  height: 1em;
+}
+
 .badge.danger {
-  border-color: var(--color-danger-border);
   background: var(--color-danger-subtle);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 /* Every page is a column of its header, its cards and, last, an info section. */
 .page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-
-/* Cards, download forms and image conversion shared by the app's pages */
-
-.info-section {
-  margin-top: 24px;
-}
-
-.file-info-card {
-  display: flex;
-  align-items: center;
   gap: 20px;
 }
 
-.file-icon {
-  flex-shrink: 0;
-  font-size: 48px;
-  color: var(--color-brand);
+/* Facts about the service below the cards, such as the privacy policy */
+.info-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px 32px;
+  margin-top: 12px;
+}
+
+.info-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.info-section h3 svg.icon {
+  color: var(--color-text-muted);
+}
+
+.info-section p {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--color-text-secondary);
+}
+
+.info-section strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* The name of a file or folder beside its tile, at the top of its page */
+.file-info-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.file-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  margin: 0 0 2px;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
 }
 
 .download-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 /* A shareable URL shown in full above its copy and download buttons */
 .download-link {
   display: block;
-  padding: 12px 16px;
-  background: var(--color-surface-solid);
-  border: 1px solid var(--color-brand-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-brand-strong);
-  font-weight: 500;
-  line-height: 1.5;
+  padding: 9px 12px;
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.6;
   word-break: break-all;
   transition: border-color var(--transition);
 }
 
 .download-link:hover {
-  border-color: var(--color-brand);
+  border-color: var(--color-accent-border);
 }
 
 .download-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .download-actions > * {
   flex: 1;
 }
 
-.conversion-options {
-  padding: 20px;
-  background: var(--color-brand-faint);
-  border: 1px solid var(--color-brand-border);
-  border-radius: var(--radius-md);
-}
-
-.conversion-options h4 {
-  margin: 0 0 12px 0;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
 .conversion-buttons {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
-}
-
-.conversion-buttons > * {
-  flex: 1;
+  gap: 8px;
 }
 
 @media (max-width: 768px) {
+  .card {
+    --card-padding: 16px;
+  }
+
+  /* An action beside the name, such as "Open Folder", moves below it. */
   .file-info-card {
-    flex-direction: column;
-    text-align: center;
-    gap: 16px;
+    flex-wrap: wrap;
   }
 
-  .file-info-card .meta-row,
-  .file-info-card .meta-list {
-    justify-content: center;
+  .file-info-card > .button {
+    width: 100%;
   }
 
-  /* Centered lines do not start at the clipped edge, so the first dot is removed instead. */
-  .file-info-card .meta-list {
-    margin-left: 0;
-    clip-path: none;
-  }
-
-  .file-info-card .meta-list > :first-child::before {
-    display: none;
-  }
-
-  .download-actions,
-  .conversion-buttons {
+  .download-actions {
     flex-direction: column;
   }
+
+  .conversion-buttons > * {
+    flex: 1 1 auto;
+  }
+}
+
+/* Set for a moment while the theme changes, so every color changes together. */
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
 }
 
 /* Read by screen readers without taking up space on screen */

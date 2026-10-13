@@ -18,6 +18,7 @@
   import CopyButton from "$lib/components/CopyButton.svelte";
   import NotFound from "$lib/components/NotFound.svelte";
   import StatusMessage from "$lib/components/StatusMessage.svelte";
+  import { shellQuote } from "$lib/shell";
   import { getUploadedFiles } from "$lib/storage";
   import { throughputMeter, transfer } from "$lib/transfer";
   import { convertedPath, downloadPath, folderPagePath, passphraseFromHash } from "$lib/urls";
@@ -149,13 +150,15 @@
 </svelte:head>
 
 <main class="page">
-  <PageHeader icon={Download} title="Download File" />
+  <PageHeader title="Download File" />
 
   {#if data.file === null}
     <NotFound title="File Not Found" message="The requested file does not exist or has expired." />
   {:else}
     <section class="card file-info-card">
-      <span class="file-icon"><FileText /></span>
+      <span class="tile lg"
+        >{#if isImage}<Image />{:else}<FileText />{/if}</span
+      >
       <div class="file-details">
         <h3 class="file-name">{data.file.name}</h3>
         <div class="meta-row">
@@ -167,7 +170,7 @@
             </span>
           </p>
           {#if data.file.isEncrypted}
-            <span class="badge"><Lock />End-to-End Encrypted</span>
+            <span class="badge"><Lock />Encrypted</span>
           {/if}
         </div>
       </div>
@@ -214,14 +217,14 @@
               <StatusMessage tone={status.tone}>{status.message}</StatusMessage>
             {/if}
           {/if}
-
-          {#if browser}
-            <CommandLine
-              command={`curl -s ${window.location.origin}/${data.file.id} | openssl enc -d -aes-256-cbc -pbkdf2 > "${data.file.name}"`}
-            />
-          {/if}
         </div>
       </Card>
+
+      {#if browser}
+        <CommandLine
+          command={`curl -s ${shellQuote(`${window.location.origin}/${data.file.id}`)} | openssl enc -d -aes-256-cbc -pbkdf2 > ${shellQuote(data.file.name)}`}
+        />
+      {/if}
     {:else if downloadURL !== ""}
       <Card
         icon={Download}
@@ -238,62 +241,33 @@
             <CopyButton text={downloadURL} />
             <Button variant="primary" href={downloadURL} icon={Download}>Download File</Button>
           </div>
-
-          {#if isImage}
-            <div class="conversion-options">
-              <h4>Image Conversion</h4>
-              <div class="conversion-buttons">
-                <Button variant="subtle" href={convertedPath(downloadURL, "jpg")} icon={Image}>
-                  Convert to JPEG
-                </Button>
-                <Button variant="subtle" href={convertedPath(downloadURL, "png")} icon={Image}>
-                  Convert to PNG
-                </Button>
-              </div>
-            </div>
-          {/if}
-
-          {#if browser}
-            <CommandLine command={`curl -OJ "${downloadURL}"`} />
-          {/if}
         </div>
+
+        {#if isImage}
+          <div class="card-section">
+            <h4 class="section-label">Image Conversion</h4>
+            <div class="conversion-buttons">
+              <Button href={convertedPath(downloadURL, "jpg")} icon={Image}>Convert to JPEG</Button>
+              <Button href={convertedPath(downloadURL, "png")} icon={Image}>Convert to PNG</Button>
+            </div>
+          </div>
+        {/if}
       </Card>
+
+      <CommandLine
+        command={`curl -OJ ${shellQuote(`${window.location.origin}/${data.file.id}`)}`}
+      />
     {/if}
   {/if}
 
   {#if data.file !== null}
     <section class="info-section">
-      <Card icon={ShieldCheck} title="Privacy Policy">
-        <p class="info-text">
+      <div>
+        <h3><ShieldCheck />Privacy Policy</h3>
+        <p>
           When downloading files, we <strong>permanently</strong> store: file ID and your IP address.
         </p>
-      </Card>
+      </div>
     </section>
   {/if}
 </main>
-
-<style>
-  .file-details {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .file-name {
-    margin: 0 0 4px 0;
-    font-size: var(--text-xl);
-    font-weight: 600;
-    color: var(--color-text);
-    word-break: break-all;
-  }
-
-  .info-text {
-    margin: 0;
-    color: var(--color-text-secondary);
-  }
-
-  @media (max-width: 480px) {
-    .file-name {
-      font-size: var(--text-lg);
-    }
-  }
-</style>

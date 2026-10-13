@@ -8,7 +8,6 @@
   import { fileSharePath } from "$lib/urls";
   import { formatSize } from "$lib/utils";
   import CloudUpload from "phosphor-svelte/lib/CloudArrowUpIcon";
-  import KeyRound from "phosphor-svelte/lib/KeyIcon";
   import LoaderCircle from "phosphor-svelte/lib/CircleNotchIcon";
   import PasswordInput from "$lib/components/PasswordInput.svelte";
   import UploadStatus from "./UploadStatus.svelte";
@@ -353,9 +352,7 @@
 <div class="file-uploader">
   {#if isEnabledEncryption}
     <div class="passphrase-section">
-      <label class="field-label" for="upload-passphrase">
-        <KeyRound />Encryption Passphrase
-      </label>
+      <label class="field-label" for="upload-passphrase">Encryption Passphrase</label>
       <PasswordInput
         id="upload-passphrase"
         bind:this={passphraseInput}
@@ -391,7 +388,7 @@
     ></button>
     <div class="drop-zone-content">
       {#if $isUploading}
-        <div class="upload-icon spinning"><LoaderCircle /></div>
+        <span class="tile lg spinning"><LoaderCircle /></span>
         <h3>{isReadingFiles ? "Reading Folder..." : "Uploading..."}</h3>
         <p>
           {isReadingFiles
@@ -399,11 +396,11 @@
             : "Please wait while your files are being uploaded"}
         </p>
       {:else if dragActive}
-        <div class="upload-icon"><CloudUpload /></div>
+        <span class="tile lg"><CloudUpload /></span>
         <h3>Drop Files or Folders Here</h3>
         <p>Release to start uploading</p>
       {:else}
-        <div class="upload-icon"><CloudUpload /></div>
+        <span class="tile lg"><CloudUpload /></span>
         <h3>Drag & Drop Files or Folders</h3>
         <p class="selection-options">
           Or <button type="button" class="select-source" onclick={handleClick}>select files</button>
@@ -412,11 +409,7 @@
             >select a folder</button
           >
         </p>
-        <div class="file-info">
-          <span class="file-size-limit"
-            >Maximum file size: {formatSize(MAX_FILE_SIZE)} per file</span
-          >
-        </div>
+        <small>Maximum file size: {formatSize(MAX_FILE_SIZE)} per file</small>
       {/if}
     </div>
   </div>
@@ -451,50 +444,31 @@
     gap: 16px;
   }
 
-  .passphrase-section {
-    margin-bottom: 16px;
-  }
-
-  .field-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .field-label :global(svg) {
-    color: var(--color-brand);
-  }
-
   .drop-zone {
     position: relative;
-    border: 3px dashed var(--color-brand-border);
-    border-radius: 20px;
-    padding: 40px 32px;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    cursor: pointer;
-    transition: all var(--transition);
-    min-height: 160px;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 40px 24px;
+    border: 1.5px dashed var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface-inset);
+    text-align: center;
+    cursor: pointer;
+    transition:
+      border-color var(--transition),
+      background var(--transition);
   }
 
-  .drop-zone:hover {
-    border-color: var(--color-brand);
-    background: var(--color-brand-subtle);
-  }
-
+  .drop-zone:hover,
   .drop-zone.drag-active {
-    border-color: var(--color-brand);
-    background: var(--color-brand-subtle);
-    box-shadow: var(--shadow-brand);
+    border-color: var(--color-accent);
+    background: var(--color-accent-subtle);
   }
 
   .drop-zone.uploading {
-    border-color: var(--color-success-border);
-    background: var(--color-success-subtle);
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-inset);
     cursor: not-allowed;
   }
 
@@ -510,25 +484,25 @@
     background: transparent;
   }
 
+  .drop-zone-target:disabled {
+    cursor: not-allowed;
+  }
+
   .drop-zone-content {
     position: relative;
     pointer-events: none;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
     max-width: 400px;
   }
 
-  .upload-icon {
-    display: flex;
-    font-size: 48px;
-    color: var(--color-brand);
-    transition: transform var(--transition);
-  }
-
-  .drop-zone:hover .upload-icon {
-    transform: translateY(-2px);
+  /* The tile is raised off the zone like a sheet of paper. */
+  .tile {
+    margin-bottom: 16px;
+    background: var(--color-control);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
   }
 
   .spinning :global(svg) {
@@ -549,26 +523,23 @@
 
   .drop-zone h3 {
     margin: 0;
-    font-size: var(--text-xl);
-    font-weight: 700;
+    font-size: var(--text-base);
+    font-weight: 600;
+    line-height: 1.5;
     color: var(--color-text);
   }
 
   .drop-zone p {
-    margin: 0;
-    font-size: var(--text-base);
-    color: var(--color-text-secondary);
-    line-height: 1.5;
-  }
-
-  .file-info {
-    margin-top: 8px;
-  }
-
-  .file-size-limit {
+    margin: 4px 0 0;
     font-size: var(--text-md);
+    line-height: 1.6;
     color: var(--color-text-secondary);
-    font-weight: 500;
+  }
+
+  .drop-zone small {
+    margin-top: 12px;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
   }
 
   .selection-options {
@@ -576,7 +547,7 @@
     align-items: baseline;
     justify-content: center;
     flex-wrap: wrap;
-    column-gap: 5px;
+    column-gap: 4px;
   }
 
   .select-source {
@@ -585,14 +556,14 @@
     border: none;
     border-radius: 4px;
     background: none;
-    color: var(--color-brand);
+    color: var(--color-accent-text);
     font: inherit;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .select-source:hover {
-    color: var(--color-brand-accent);
     text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .file-input {
@@ -601,26 +572,7 @@
 
   @media (max-width: 768px) {
     .drop-zone {
-      padding: 48px 24px;
-    }
-
-    .drop-zone p {
-      font-size: var(--text-md);
-    }
-  }
-
-  @media (max-width: 480px) {
-    .drop-zone {
       padding: 32px 16px;
-      min-height: 140px;
-    }
-
-    .upload-icon {
-      font-size: 40px;
-    }
-
-    .drop-zone h3 {
-      font-size: var(--text-lg);
     }
   }
 </style>

@@ -11,7 +11,7 @@
     text: string | (() => string);
     label?: string;
     icon?: Component<IconComponentProps>;
-    variant?: "primary" | "secondary" | "subtle";
+    variant?: "primary" | "secondary" | "ghost";
     size?: "md" | "sm";
     iconOnly?: boolean;
     block?: boolean;

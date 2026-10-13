@@ -7,7 +7,6 @@
   import FileSaver from "file-saver";
   import { MAX_CONVERTIBLE_IMAGE_SIZE } from "$lib/constants";
   import Download from "phosphor-svelte/lib/DownloadSimpleIcon";
-  import Folder from "phosphor-svelte/lib/FolderIcon";
   import Image from "phosphor-svelte/lib/ImageIcon";
   import LockOpen from "phosphor-svelte/lib/LockOpenIcon";
   import ShieldCheck from "phosphor-svelte/lib/ShieldCheckIcon";
@@ -26,6 +25,7 @@
     passphraseFromHash,
     withPassphrase,
   } from "$lib/urls";
+  import { shellQuote } from "$lib/shell";
   import { getUploadedFiles } from "$lib/storage";
   import { clock } from "$lib/clock.svelte";
   import PasswordInput from "$lib/components/PasswordInput.svelte";
@@ -102,7 +102,9 @@
 
   const archivePath = (format: "zip" | "tar") =>
     downloadPath(data.folder!.id, archiveName(folderName, format));
-  const curlCommand = $derived(data.folder ? `curl -OJ ${origin}/${data.folder.id}` : "");
+  const curlCommand = $derived(
+    data.folder ? `curl -OJ ${shellQuote(`${origin}/${data.folder.id}`)}` : "",
+  );
   const url = (conversion = "", selection = false) => {
     const query = new SvelteURLSearchParams();
     if (conversion) query.set("conv", conversion);
@@ -242,37 +244,34 @@
   onload={checkDownloadFrame}
 ></iframe>
 <main class="page">
-  <PageHeader icon={Folder} title="Download Folder" />
+  <PageHeader title="Download Folder" />
   {#if !data.folder}
     <NotFound
       title="Folder Not Found"
       message="This folder has expired or is no longer available."
     />
   {:else}
-    <section class="card file-info-card">
-      <span class="file-icon"><Folder /></span>
-      <div class="file-details">
-        {#key data.folder.id}
-          <FolderNameEditor
-            variant="folder"
-            id={data.folder.id}
-            name={folderName}
-            fileCount={data.folder.files.length}
-            isEncrypted={data.folder.isEncrypted}
-            details={[
-              { text: formatSize(data.folder.files.reduce((sum, file) => sum + file.size, 0)) },
-              {
-                text: formatExpiry(data.folder.expireAt, clock.now),
-                title: formatDateTime(data.folder.expireAt),
-              },
-            ]}
-            {managementToken}
-            onsave={(name) => {
-              renamedFolder = { id: data.folder!.id, name };
-            }}
-          />
-        {/key}
-      </div>
+    <section class="card">
+      {#key data.folder.id}
+        <FolderNameEditor
+          variant="folder"
+          id={data.folder.id}
+          name={folderName}
+          fileCount={data.folder.files.length}
+          isEncrypted={data.folder.isEncrypted}
+          details={[
+            { text: formatSize(data.folder.files.reduce((sum, file) => sum + file.size, 0)) },
+            {
+              text: formatExpiry(data.folder.expireAt, clock.now),
+              title: formatDateTime(data.folder.expireAt),
+            },
+          ]}
+          {managementToken}
+          onsave={(name) => {
+            renamedFolder = { id: data.folder!.id, name };
+          }}
+        />
+      {/key}
     </section>
     <Card
       icon={Download}
@@ -352,28 +351,25 @@
                 <div class="file-actions">
                   {#if data.folder.isEncrypted}
                     <Button
-                      variant="subtle"
                       size="sm"
+                      icon={LockOpen}
                       disabled={busy || !passphrase}
                       onclick={() => downloadEncryptedFile(file)}
                     >
                       {activeFileID === file.id ? "Working..." : "Decrypt & Download"}
                     </Button>
                   {:else}
-                    <Button variant="subtle" size="sm" href={fileURL(file)}>Download</Button>
+                    <Button size="sm" icon={Download} href={fileURL(file)}>Download</Button>
                   {/if}
                   <CopyButton
                     text={() => shareURL(fileURL(file))}
-                    variant="subtle"
+                    variant="ghost"
                     size="sm"
                     iconOnly
                     disabled={cannotCopy}
                     label={data.folder.isEncrypted
                       ? "Copy Decryption Page Link"
                       : "Copy Download Link"}
-                    title={data.folder.isEncrypted
-                      ? "Copy decryption page link"
-                      : "Copy download link"}
                   />
                 </div>
               {/if}
@@ -404,81 +400,66 @@
             </Button>
           {/if}
         {/if}
-        {#if showImageConversion}
-          <div class="conversion-options" class:unavailable={!!conversionReason}>
-            <h4>Image Conversion</h4>
-            <div class="conversion-buttons">
-              <Button
-                variant="subtle"
-                icon={Image}
-                disabled={busy || !!conversionReason}
-                onclick={() => downloadConverted("jpg")}
-              >
-                <span>
-                  Convert {data.folder.isDisposable ? "All" : "Selected"} to
-                  <span class="keep-together">JPEG</span>
-                </span>
-              </Button>
-              <Button
-                variant="subtle"
-                icon={Image}
-                disabled={busy || !!conversionReason}
-                onclick={() => downloadConverted("png")}
-              >
-                <span>
-                  Convert {data.folder.isDisposable ? "All" : "Selected"} to
-                  <span class="keep-together">PNG</span>
-                </span>
-              </Button>
-            </div>
-            {#if conversionReason}
-              <p class="conversion-reason">{conversionReason}</p>
-            {/if}
-          </div>
-        {/if}
-        {#if !data.folder.isEncrypted}
-          <CommandLine command={curlCommand} />
-        {/if}
       </div>
+      {#if showImageConversion}
+        <div class="card-section">
+          <h4 class="section-label">Image Conversion</h4>
+          <div class="conversion-buttons">
+            <Button
+              icon={Image}
+              disabled={busy || !!conversionReason}
+              onclick={() => downloadConverted("jpg")}
+            >
+              <span>
+                Convert {data.folder.isDisposable ? "All" : "Selected"} to
+                <span class="keep-together">JPEG</span>
+              </span>
+            </Button>
+            <Button
+              icon={Image}
+              disabled={busy || !!conversionReason}
+              onclick={() => downloadConverted("png")}
+            >
+              <span>
+                Convert {data.folder.isDisposable ? "All" : "Selected"} to
+                <span class="keep-together">PNG</span>
+              </span>
+            </Button>
+          </div>
+          {#if conversionReason}
+            <p class="conversion-reason">{conversionReason}</p>
+          {/if}
+        </div>
+      {/if}
     </Card>
+
+    {#if !data.folder.isEncrypted}
+      <CommandLine command={curlCommand} />
+    {/if}
   {/if}
   {#if data.folder}
     <section class="info-section">
-      <Card icon={ShieldCheck} title="Privacy Policy">
-        <p class="info-text">
+      <div>
+        <h3><ShieldCheck />Privacy Policy</h3>
+        <p>
           When downloading files, we <strong>permanently</strong> store: folder ID, file IDs and your
           IP address.
         </p>
-      </Card>
+      </div>
     </section>
   {/if}
 </main>
 
 <style>
-  .file-details {
-    flex: 1;
-    min-width: 0;
-  }
-
   .keep-together {
     white-space: nowrap;
   }
 
-  .conversion-options.unavailable {
-    background: var(--color-surface-inset);
-    border-color: var(--color-border);
-  }
-
   .conversion-reason {
-    margin: 12px 0 0;
-    font-size: var(--text-md);
-    color: var(--color-text-secondary);
-    line-height: 1.5;
-  }
-
-  .info-text {
-    margin: 0;
-    color: var(--color-text-secondary);
+    margin: 10px 0 0;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-text-muted);
   }
 
   .file-list {
@@ -492,16 +473,23 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px 16px;
+    padding: 10px 12px;
   }
 
-  .file-row + .file-row {
+  .file-row {
+    min-height: 56px;
+  }
+
+  .file-row + .file-row,
+  .select-all + .file-row {
     border-top: 1px solid var(--color-border);
   }
 
   .select-all {
-    background: var(--color-brand-subtle);
-    font-weight: 600;
+    background: var(--color-surface-inset);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
   }
 
   .file-choice {
@@ -513,8 +501,9 @@
     overflow-wrap: anywhere;
   }
 
+  /* Centers the checkbox on the first line of the name. */
   .file-choice input {
-    margin-top: 3px;
+    margin-top: calc((1.5em - 16px) / 2);
   }
 
   .file-choice,
@@ -526,27 +515,24 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
     min-width: 0;
+    font-size: var(--text-md);
+    font-weight: 500;
     line-height: 1.5;
   }
 
   .file-size {
     font-size: var(--text-sm);
-    color: var(--color-text-secondary);
+    font-weight: 400;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
   }
 
   .file-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     flex-shrink: 0;
-  }
-
-  @media (max-width: 768px) {
-    .file-details {
-      width: 100%;
-    }
   }
 
   @media (max-width: 480px) {
@@ -560,6 +546,7 @@
 
     .file-actions {
       width: 100%;
+      padding-left: 28px;
     }
 
     .file-actions > :global(.button:first-child) {

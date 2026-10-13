@@ -13,52 +13,71 @@
   const parts = $derived(placeholder ? command.split(placeholder) : [command]);
 </script>
 
-<div class="command-line">
-  <span class="label"><Terminal />Command Line</span>
-  <div class="row">
-    <code
-      >{#each parts as part, index (index)}{#if index}<i>{placeholder}</i>{/if}{part}{/each}</code
-    >
-    <CopyButton text={command} label="Copy Command" iconOnly size="sm" />
+<section class="command-line" aria-label="Command Line">
+  <div class="bar">
+    <span class="label"><Terminal />Command Line</span>
+    <CopyButton text={command} label="Copy Command" variant="ghost" iconOnly size="sm" />
   </div>
-</div>
+  <!-- The prompt is drawn by CSS, so it is neither copied nor read aloud. -->
+  <code
+    >{#each parts as part, index (index)}{#if index}<i>{placeholder}</i>{/if}{part}{/each}</code
+  >
+</section>
 
 <style>
+  /* A terminal window, dark in both themes */
   .command-line {
-    padding: 12px;
-    background: var(--color-brand-faint);
-    border: 1px solid var(--color-brand-border);
-    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--color-terminal);
+    border: 1px solid var(--color-terminal-border);
+    border-radius: var(--radius-lg);
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 4px 14px;
+    border-bottom: 1px solid var(--color-terminal-border);
   }
 
   .label {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 8px;
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-terminal-muted);
   }
 
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .bar :global(.button) {
+    color: var(--color-terminal-muted);
+  }
+
+  .bar :global(.button:not(:disabled):hover) {
+    background: var(--color-terminal-hover);
+    color: var(--color-terminal-text);
   }
 
   code {
-    flex: 1;
     display: block;
-    padding: 7px 12px;
-    background: var(--color-surface-inset);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    font-size: var(--text-xs);
-    line-height: 1.6;
-    color: var(--color-text);
-    white-space: nowrap;
+    padding: 14px 16px;
     overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--color-terminal-text);
+    white-space: nowrap;
+  }
+
+  code::before {
+    content: "$";
+    margin-right: 10px;
+    color: var(--color-terminal-prompt);
+  }
+
+  i {
+    color: var(--color-terminal-placeholder);
   }
 
   /* Phones rarely have a terminal at hand. */
