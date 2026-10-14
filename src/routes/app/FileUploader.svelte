@@ -5,7 +5,7 @@
   import { addUploadedFile } from "$lib/storage";
   import { collectDroppedFiles } from "$lib/dropped-files";
   import { requestMessage, responseMessage, throughputMeter, transfer } from "$lib/transfer";
-  import { fileSharePath } from "$lib/urls";
+  import { fileSharePath, folderPagePath } from "$lib/urls";
   import { formatSize } from "$lib/utils";
   import CloudUpload from "phosphor-svelte/lib/CloudArrowUpIcon";
   import LoaderCircle from "phosphor-svelte/lib/CircleNotchIcon";
@@ -178,7 +178,7 @@
       return;
     }
     $isUploading = true;
-    let folder: { folderID: string; managementToken: string; downloadURL: string } | undefined;
+    let folder: { folderID: string; managementToken: string } | undefined;
     try {
       uploadStatus.updateUploadProgress(0, 0);
       const response = await fetch("/api/folder", {
@@ -266,11 +266,17 @@
         isEncrypted: isEnabledEncryption,
         passphrase: secret || undefined,
       });
-      uploadStatus.updateDownloadURL(folder!.downloadURL, secret || null, false, {
-        id: folder!.folderID,
-        name,
-        managementToken: folder!.managementToken,
-      });
+      // Built from the page's own address, as the server may sit behind an HTTPS proxy.
+      uploadStatus.updateDownloadURL(
+        `${window.location.origin}${folderPagePath(folder!.folderID)}`,
+        secret || null,
+        false,
+        {
+          id: folder!.folderID,
+          name,
+          managementToken: folder!.managementToken,
+        },
+      );
     } catch (cause) {
       if (folder)
         await fetch(`/api/folder/${folder.folderID}`, {
