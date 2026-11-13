@@ -1,4 +1,5 @@
 import { error, redirect, type Cookies } from "@sveltejs/kit";
+import { rendersInline } from "$lib/server/content-type";
 import { findFolder } from "$lib/server/db/folder";
 import {
   contentDisposition,
@@ -18,9 +19,15 @@ const NOT_FOUND = "Not found. The file may have expired or been deleted.";
 
 // A name in the URL asks for a download under that name; a bare ID is shown inline
 // when the type allows. Either way, a converted image gets the matching extension.
-const dispositionOf = (storedName: string, urlName?: string, requiredType?: FileType) => {
+const dispositionOf = (
+  file: { name: string; contentType: string },
+  urlName?: string,
+  requiredType?: FileType,
+) => {
   if (!urlName) {
-    return contentDisposition("inline", storedName);
+    // Browsers guess a name for inline content they cannot show, so a .docx would
+    // otherwise be saved by its ZIP content. An attachment keeps the stored name.
+    return contentDisposition(rendersInline(file.contentType) ? "inline" : "attachment", file.name);
   }
 
   return contentDisposition(
@@ -110,7 +117,7 @@ export const GET: RequestHandler = plainTextErrors(async (event) => {
   const requiredType = conversionOf(url);
   const file = await downloadFile(fileID, requiredType, getClientAddress());
 
-  return fileResponse(file, dispositionOf(file.name, fileName, requiredType));
+  return fileResponse(file, dispositionOf(file, fileName, requiredType));
 });
 
 const upload: RequestHandler = (event) =>
@@ -154,5 +161,5 @@ export const HEAD: RequestHandler = plainTextErrors(async ({ params, url }) => {
 
   const requiredType = conversionOf(url);
   const file = await inspectFile(fileID, requiredType);
-  return fileResponse(file, dispositionOf(file.name, params.b, requiredType));
+  return fileResponse(file, dispositionOf(file, params.b, requiredType));
 });

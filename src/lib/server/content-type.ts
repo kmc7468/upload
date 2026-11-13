@@ -61,6 +61,9 @@ const sniff = (head: Uint8Array) => {
   return undefined;
 };
 
+const MEDIA_TYPE = /^[\w.+-]+\/[\w.+-]+$/;
+const OCTET_STREAM = "application/octet-stream";
+
 export const servedContentType = (storedType: string, head: Uint8Array) => {
   const type = storedType.split(";")[0].trim().toLowerCase();
   if (PASSIVE_TYPE.test(type) || type === SVG_TYPE) {
@@ -70,7 +73,18 @@ export const servedContentType = (storedType: string, head: Uint8Array) => {
     return `text/plain; charset=${charset}`;
   }
 
-  return sniff(head) ?? "application/octet-stream";
+  const sniffed = sniff(head);
+  if (sniffed) return sniffed;
+  // Other types are always sent as attachments (see rendersInline), so keeping the
+  // uploaded type is safe and lets browsers keep extensions such as .docx instead of
+  // guessing from the content, which would save Office documents as ZIP archives.
+  return MEDIA_TYPE.test(type) ? type : OCTET_STREAM;
+};
+
+// Whether a served type may be shown in the browser rather than downloaded.
+export const rendersInline = (servedType: string) => {
+  const type = servedType.split(";")[0].trim();
+  return PASSIVE_TYPE.test(type) || type === SVG_TYPE || type === "text/plain";
 };
 
 export const contentSecurityPolicy = (servedType: string) =>
